@@ -1,0 +1,29 @@
+# NetSentinel — Root Configuration
+#
+# This is the top-level configuration entry point. It composes the other
+# configuration files via the `defaults` list. Every value consumed by the
+# code base must originate here (or in an included file) — never hardcode
+# paths, dataset names, hyperparameters or device selection in Python.
+#
+# Loading contract (see src/utils/config.py):
+#   1. Read this file.
+#   2. Recursively load every file referenced under `defaults`.
+#   3. Deep-merge them (later entries override earlier ones).
+#   4. Apply optional CLI / environment overrides.
+
+project:
+  name: netsentinel
+  version: "1.0"
+  # Global reproducibility seed. Propagated to python, numpy and torch.
+  seed: 42
+
+# Files included and deep-merged into the effective configuration.
+# Paths are relative to the `configs/` directory.
+defaults:
+  - paths.yaml
+  - logging.yaml
+  - data.yaml
+
+# Phase 1 only operates on the data layer. Model / training configuration
+# is intentionally absent and will be added in later phases.
+# TODO(phase-2): add `defaults: training.yaml` once baseline models land.

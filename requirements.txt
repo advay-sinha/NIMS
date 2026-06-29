@@ -1,0 +1,40 @@
+# Core
+numpy
+pandas
+scipy
+
+# Machine Learning
+scikit-learn
+xgboost
+lightgbm
+catboost
+
+# Data Visualization
+matplotlib
+plotly
+seaborn
+
+# Jupyter
+jupyterlab
+notebook
+ipykernel
+ipywidgets
+
+# Kaggle
+kaggle
+
+# Utilities
+tqdm
+joblib
+python-dotenv
+pyyaml
+rich
+psutil
+requests
+
+# File Formats
+pyarrow
+openpyxl
+
+# Experiment Tracking
+tensorboard

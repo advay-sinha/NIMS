@@ -1,0 +1,62 @@
+# Network Instrusion and Monitoring System — project & tooling configuration.
+# Phase 1 scope: data engineering. Build metadata is intentionally minimal.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netsentinel"
+version = "1.0.0"
+description = "AI-powered Network Intrusion Detection & Health Prediction platform."
+requires-python = ">=3.11"
+readme = "README.md"
+
+[tool.setuptools]
+# Source layout: importable packages live at the repo root.
+packages = ["src", "scripts"]
+
+# ----------------------------------------------------------------------------
+# Formatting / linting / typing (CLAUDE.md > Python Standards).
+# ----------------------------------------------------------------------------
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, pyupgrade, bugbear, docstrings.
+select = ["E", "F", "I", "UP", "B", "D"]
+# Allow incremental docstrings in tests; modules already documented.
+ignore = ["D100", "D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+warn_return_any = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+files = ["src", "scripts"]
+
+# ----------------------------------------------------------------------------
+# Testing (CLAUDE.md > Testing Policy).
+# ----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+# Make the repo root importable so `from src... import ...` resolves.
+pythonpath = ["."]

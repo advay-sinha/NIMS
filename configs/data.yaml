@@ -1,0 +1,49 @@
+# NetSentinel — Data Pipeline Configuration
+#
+# Cross-dataset defaults for the Phase 1 data pipeline. Per-dataset specifics
+# (file names, column schemas, label columns) live in configs/datasets/*.yaml
+# and override these defaults where needed.
+
+data:
+  # Datasets the pipeline knows about. Each maps to a loader in
+  # src/data/loaders/ via src/data/registry.py.
+  active_datasets:
+    - nsl_kdd
+    - unsw_nb15
+    - cicids2017
+    - snmp
+
+  # Reproducible train / validation / test partitioning.
+  split:
+    train_size: 0.70
+    val_size: 0.15
+    test_size: 0.15
+    stratify: true            # preserve label distribution across splits
+    shuffle: true
+    # `seed` defaults to project.seed unless overridden here.
+
+  # Missing-value handling. Strategy is documented per CLAUDE.md > Dataset
+  # Rules; concrete imputation lives in src/data/cleaning.py.
+  cleaning:
+    drop_duplicates: true
+    drop_constant_columns: true
+    # Replace +/-inf (common in CICIDS2017 flow features) before imputation.
+    replace_inf: true
+    numeric_impute: median     # one of: median | mean | zero | drop
+    categorical_impute: most_frequent
+
+  # Categorical encoding. Encoders are fit on TRAIN ONLY and persisted for
+  # reuse at validation / inference time (src/data/encoding.py).
+  encoding:
+    categorical_strategy: onehot   # one of: onehot | ordinal | target
+    handle_unknown: ignore
+
+  # Numerical scaling. Fit on TRAIN ONLY, reuse everywhere else
+  # (src/data/scaling.py).
+  scaling:
+    numeric_strategy: standard     # one of: standard | minmax | robust | none
+
+  # Persisted output format for processed datasets.
+  io:
+    processed_format: parquet      # one of: parquet | csv
+    compression: snappy

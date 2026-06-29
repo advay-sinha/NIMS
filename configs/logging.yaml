@@ -1,0 +1,37 @@
+# NetSentinel — Logging Configuration
+#
+# Consumed by src/utils/logging_utils.py. The repository forbids print();
+# all runtime output flows through the logging module (CLAUDE.md > Logging
+# Rules). This config is intentionally framework-agnostic so it can be fed to
+# logging.config.dictConfig or a thin custom setup.
+
+logging:
+  version: 1
+  disable_existing_loggers: false
+
+  # Root level. Per-run scripts may raise verbosity via CLI override.
+  level: INFO
+
+  # Human-readable console format and machine-friendly file format.
+  formatters:
+    console:
+      format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+    detailed:
+      format: "%(asctime)s | %(levelname)-8s | %(name)s | %(filename)s:%(lineno)d | %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+
+  handlers:
+    console:
+      enabled: true
+      level: INFO
+      formatter: console
+      use_rich: true          # render via `rich` when available, else stdlib
+    file:
+      enabled: true
+      level: DEBUG
+      formatter: detailed
+      # Resolved against paths.logs_dir at setup time.
+      filename: netsentinel.log
+      max_bytes: 10485760      # 10 MB
+      backup_count: 5
