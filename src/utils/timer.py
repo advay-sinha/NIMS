@@ -55,6 +55,8 @@ class Timer:
         exc: Optional[BaseException],
         tb: Optional[TracebackType],
     ) -> None:
-        # TODO(data-engineer): compute self.elapsed and log at self.log_level.
-        #   Do not suppress exceptions (return None / False).
-        raise NotImplementedError
+        end = time.perf_counter()
+        start = self._start if self._start is not None else end
+        self.elapsed = end - start
+        # Returning None (implicitly) never suppresses an in-flight exception.
+        logger.log(self.log_level, "%s took %.4fs", self.label, self.elapsed)

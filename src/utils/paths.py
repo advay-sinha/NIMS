@@ -63,6 +63,10 @@ class Paths:
     data_reports_dir: Path
     fingerprints_dir: Path
     figures_dir: Path
+    # Phase 2 preprocessing outputs (reports, processed splits, fitted artefacts).
+    preprocessing_dir: Path
+    processed_out_dir: Path
+    artifacts_dir: Path
     # Mapping of dataset id -> read-only raw directory.
     raw: Mapping[str, Path]
 
@@ -113,6 +117,9 @@ class Paths:
             data_reports_dir=resolve("data_reports_dir"),
             fingerprints_dir=resolve("fingerprints_dir"),
             figures_dir=resolve("figures_dir"),
+            preprocessing_dir=resolve("preprocessing_dir"),
+            processed_out_dir=resolve("processed_out_dir"),
+            artifacts_dir=resolve("artifacts_dir"),
             raw=raw,
         )
 

@@ -52,8 +52,12 @@ def read_parquet(path: str | Path) -> "Any":
     -------
     pandas.DataFrame
     """
-    # TODO(data-engineer): import pandas lazily; pd.read_parquet(path).
-    raise NotImplementedError
+    import pandas as pd
+
+    resolved = Path(path)
+    if not resolved.is_file():
+        raise FileNotFoundError(f"Parquet file not found: {resolved}")
+    return pd.read_parquet(resolved)
 
 
 def write_parquet(
@@ -78,8 +82,8 @@ def write_parquet(
         The path written.
     """
     target = _ensure_parent(path)
-    # TODO(data-engineer): df.to_parquet(target, compression=compression).
-    raise NotImplementedError
+    df.to_parquet(target, compression=compression, index=False)
+    return target
 
 
 def read_csv(path: str | Path, **kwargs: Any) -> "Any":
@@ -135,9 +139,12 @@ def write_json(obj: Any, path: str | Path, indent: int = 2) -> Path:
 
 def write_yaml(obj: Any, path: str | Path) -> Path:
     """Serialise ``obj`` to a YAML file, creating parent directories."""
+    import yaml
+
     target = _ensure_parent(path)
-    # TODO(data-engineer): import yaml lazily; yaml.safe_dump(obj, ...).
-    raise NotImplementedError
+    with open(target, "w", encoding="utf-8") as fh:
+        yaml.safe_dump(obj, fh, default_flow_style=False, sort_keys=False)
+    return target
 
 
 def save_artifact(obj: Any, path: str | Path) -> Path:
@@ -154,12 +161,18 @@ def save_artifact(obj: Any, path: str | Path) -> Path:
     -------
     Path
     """
+    import joblib
+
     target = _ensure_parent(path)
-    # TODO(data-engineer): import joblib lazily; joblib.dump(obj, target).
-    raise NotImplementedError
+    joblib.dump(obj, target)
+    return target
 
 
 def load_artifact(path: str | Path) -> Any:
     """Load a joblib-serialised object (inverse of :func:`save_artifact`)."""
-    # TODO(data-engineer): import joblib lazily; return joblib.load(path).
-    raise NotImplementedError
+    import joblib
+
+    resolved = Path(path)
+    if not resolved.is_file():
+        raise FileNotFoundError(f"Artifact file not found: {resolved}")
+    return joblib.load(resolved)

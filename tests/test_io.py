@@ -22,11 +22,29 @@ def test_write_json_creates_parent_directories(tmp_artifact_path: Path) -> None:
     assert tmp_artifact_path.parent.is_dir()
 
 
-@pytest.mark.xfail(raises=NotImplementedError, strict=True)
-def test_read_parquet_not_yet_implemented(tmp_path: Path) -> None:
-    io.read_parquet(tmp_path / "x.parquet")
+def test_write_then_read_parquet_roundtrip(tmp_path: Path) -> None:
+    import pandas as pd
+
+    df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    target = tmp_path / "nested" / "df.parquet"
+    written = io.write_parquet(df, target)
+    assert written.exists()
+    pd.testing.assert_frame_equal(io.read_parquet(written), df)
 
 
-@pytest.mark.xfail(raises=NotImplementedError, strict=True)
-def test_save_artifact_not_yet_implemented(tmp_path: Path) -> None:
-    io.save_artifact(object(), tmp_path / "x.joblib")
+def test_save_then_load_artifact_roundtrip(tmp_path: Path) -> None:
+    payload = {"weights": [1, 2, 3], "strategy": "standard"}
+    target = tmp_path / "nested" / "obj.joblib"
+    written = io.save_artifact(payload, target)
+    assert written.exists()
+    assert io.load_artifact(written) == payload
+
+
+def test_read_parquet_missing_file_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        io.read_parquet(tmp_path / "missing.parquet")
+
+
+def test_load_artifact_missing_file_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        io.load_artifact(tmp_path / "missing.joblib")

@@ -26,6 +26,13 @@ paths:
   fingerprints_dir: outputs/metadata
   figures_dir: outputs/figures
 
+  # Phase 2 preprocessing outputs. Each pipeline run namespaces its artefacts
+  # under a per-dataset subdirectory (e.g. outputs/processed/nsl_kdd/) so that
+  # running multiple datasets never overwrites another's outputs.
+  preprocessing_dir: outputs/preprocessing
+  processed_out_dir: outputs/processed
+  artifacts_dir: outputs/artifacts
+
   # Raw dataset roots. Names contain spaces / vendor quirks on disk, so they
   # are spelled out explicitly here rather than derived from the dataset id.
   raw:

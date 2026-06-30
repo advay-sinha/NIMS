@@ -13,7 +13,7 @@ data:
     - cicids2017
     - snmp
 
-  # Reproducible train / validation / test partitioning.
+  # Reproducible train / validation / test partitioning (src/data/splitting.py).
   split:
     train_size: 0.70
     val_size: 0.15
@@ -22,21 +22,37 @@ data:
     shuffle: true
     # `seed` defaults to project.seed unless overridden here.
 
-  # Missing-value handling. Strategy is documented per CLAUDE.md > Dataset
-  # Rules; concrete imputation lives in src/data/cleaning.py.
+  # Cleaning. Entirely config-driven; concrete logic in src/data/cleaning.py.
+  # Cleaning operates on a COPY and never mutates raw data.
   cleaning:
     drop_duplicates: true
+    duplicate_keep: first      # one of: first | last | none
     drop_constant_columns: true
     # Replace +/-inf (common in CICIDS2017 flow features) before imputation.
     replace_inf: true
-    numeric_impute: median     # one of: median | mean | zero | drop
-    categorical_impute: most_frequent
+    numeric_impute: median     # one of: median | mean | zero | drop | none
+    categorical_impute: most_frequent  # most_frequent | constant | drop | none
+    categorical_fill_value: "__missing__"  # used when categorical_impute=constant
+    drop_rows_all_null: true   # drop rows that are entirely null
+    # Explicit columns to drop before modelling (in addition to per-dataset
+    # drop_columns handled by the loader). Empty by default.
+    drop_columns: []
+    # Optional IQR-based outlier clipping for numeric columns.
+    outlier_clip:
+      enabled: false
+      factor: 1.5              # clip beyond Q1 - f*IQR and Q3 + f*IQR
+      columns: []             # empty => all numeric columns
+    # Optional datatype normalisation (memory-friendly downcasting).
+    normalize_dtypes:
+      enabled: false
+      downcast_numeric: true
 
   # Categorical encoding. Encoders are fit on TRAIN ONLY and persisted for
   # reuse at validation / inference time (src/data/encoding.py).
   encoding:
-    categorical_strategy: onehot   # one of: onehot | ordinal | target
-    handle_unknown: ignore
+    categorical_strategy: onehot   # one of: onehot | ordinal
+    handle_unknown: ignore         # unknown categories handled safely
+    encode_labels: true            # LabelEncoder for the target column
 
   # Numerical scaling. Fit on TRAIN ONLY, reuse everywhere else
   # (src/data/scaling.py).
@@ -47,3 +63,11 @@ data:
   io:
     processed_format: parquet      # one of: parquet | csv
     compression: snappy
+
+  # Memory optimization & scalability (Phase 2.1). These affect resource usage
+  # only — never the preprocessing logic. Tuned so the pipeline fits an 8 GB
+  # development machine on multi-million-row datasets (e.g. CICIDS2017).
+  optimization:
+    downcast_numeric: true   # float64->float32, int64->smallest int on outputs
+    collect_garbage: true    # gc.collect() between major stages
+    profile_memory: true     # write outputs/preprocessing/<id>/memory_profile.json

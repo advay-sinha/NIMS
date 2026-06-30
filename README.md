@@ -62,6 +62,16 @@ The architecture is designed to support additional intrusion detection datasets 
 - Dataset audit generation
 - Automated validation reports
 
+### Data Preprocessing
+
+- Configuration-driven cleaning (duplicates, infinities, missing values, outlier clipping, dtype normalization)
+- Train-only categorical encoding (one-hot / ordinal) with safe unknown-category handling
+- Train-only feature scaling (standard / min-max / robust)
+- Reproducible, stratified train/validation/test splitting
+- End-to-end preprocessing orchestrator with no data leakage
+- Persisted processed datasets, fitted encoder/scaler artifacts, and a reproducibility manifest
+- Per-stage reports (cleaning, encoding, scaling, split)
+
 ### Software Quality
 
 - Unit testing
@@ -73,17 +83,14 @@ The architecture is designed to support additional intrusion detection datasets 
 
 ## 🚧 Current Phase
 
-Development is currently focused on the preprocessing pipeline.
+Development is now focused on feature engineering ahead of model training.
 
 This includes:
 
-- Duplicate removal
-- Missing value handling
-- Infinite value handling
-- Feature encoding
-- Feature scaling
-- Dataset splitting
-- End-to-end preprocessing pipeline
+- Domain-specific feature derivation
+- Feature selection and importance analysis
+- Correlation and redundancy reduction
+- Feature-set versioning
 
 ---
 
@@ -159,6 +166,48 @@ NIMS/
 
 ---
 
+# Usage
+
+All entry points are configuration-driven and read from `configs/`. Run them as
+modules from the repository root.
+
+Validate raw datasets:
+
+```bash
+python -m scripts.validate_datasets --all
+python -m scripts.validate_datasets --dataset nsl_kdd
+```
+
+Audit datasets (statistics, fingerprints, Markdown audit report):
+
+```bash
+python -m scripts.run_audit --all
+```
+
+Run the preprocessing pipeline (clean → split → encode → scale → persist):
+
+```bash
+python -m scripts.run_preprocessing --dataset nsl_kdd
+python -m scripts.run_preprocessing --all
+```
+
+Preprocessing outputs are written per dataset under:
+
+```text
+outputs/preprocessing/<id>/{cleaning,encoding,scaling,split}_report.json
+outputs/preprocessing/<id>/preprocessing_manifest.json
+outputs/processed/<id>/{train,validation,test}.parquet
+outputs/artifacts/<id>/{encoder,scaler,label_encoder}.joblib
+```
+
+Run the test suite:
+
+```bash
+pytest
+```
+
+---
+
 # Design Principles
 
 NIMS is built around the following principles:
@@ -179,8 +228,8 @@ NIMS is built around the following principles:
 - ✅ Dataset ingestion
 - ✅ Dataset validation
 - ✅ Dataset auditing
-- 🚧 Data preprocessing
-- ⏳ Feature engineering
+- ✅ Data preprocessing
+- 🚧 Feature engineering
 - ⏳ Machine learning models
 - ⏳ Deep learning models
 - ⏳ Hyperparameter optimization
@@ -192,9 +241,9 @@ NIMS is built around the following principles:
 
 # Current Status
 
-**Current Development Stage:** Data Preprocessing
+**Current Development Stage:** Feature Engineering
 
-The data engineering foundation has been completed, including dataset ingestion, validation, profiling, fingerprinting, and auditing. Development is now progressing toward a configurable preprocessing pipeline that will prepare datasets for downstream machine learning and deep learning workflows.
+The data engineering foundation and the configuration-driven preprocessing pipeline are complete, including dataset ingestion, validation, profiling, fingerprinting, auditing, cleaning, encoding, scaling, and reproducible splitting with persisted artifacts. Development is now progressing toward feature engineering to prepare feature sets for downstream machine learning and deep learning workflows.
 
 ---
 

@@ -12,7 +12,13 @@ def test_timer_enter_returns_self() -> None:
     assert timer.__enter__() is timer
 
 
-@pytest.mark.xfail(raises=NotImplementedError, strict=True)
-def test_timer_exit_not_yet_implemented() -> None:
-    with Timer("unit"):
+def test_timer_records_elapsed() -> None:
+    with Timer("unit") as timer:
         pass
+    assert timer.elapsed >= 0.0
+
+
+def test_timer_does_not_suppress_exceptions() -> None:
+    with pytest.raises(ValueError):
+        with Timer("unit"):
+            raise ValueError("boom")
