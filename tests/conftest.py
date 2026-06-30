@@ -41,6 +41,8 @@ def make_paths(tmp_path: Path) -> Callable[[Mapping[str, Path]], Paths]:
             preprocessing_dir=tmp_path / "outputs/preprocessing",
             processed_out_dir=tmp_path / "outputs/processed",
             artifacts_dir=tmp_path / "outputs/artifacts",
+            features_out_dir=tmp_path / "outputs/features",
+            experiments_dir=tmp_path / "outputs/experiments",
             raw=dict(raw),
         )
 
@@ -85,6 +87,8 @@ def sample_config() -> dict[str, Any]:
             "preprocessing_dir": "outputs/preprocessing",
             "processed_out_dir": "outputs/processed",
             "artifacts_dir": "outputs/artifacts",
+            "features_out_dir": "outputs/features",
+            "experiments_dir": "outputs/experiments",
             "raw": {"nsl_kdd": "datasets/NSL-KDD"},
         },
         "data": {

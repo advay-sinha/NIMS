@@ -72,6 +72,26 @@ The architecture is designed to support additional intrusion detection datasets 
 - Persisted processed datasets, fitted encoder/scaler artifacts, and a reproducibility manifest
 - Per-stage reports (cleaning, encoding, scaling, split)
 
+### Feature Engineering
+
+- Variance-threshold filtering (constant / near-constant removal)
+- Correlation filtering (Pearson / Spearman) of redundant feature pairs
+- Statistical selection: mutual information, chi-square, ANOVA F-test
+- Tree-based (RandomForest) feature importance
+- Recursive Feature Elimination (RFE)
+- Optional PCA with configurable explained variance
+- Train-only fitting with no leakage; serialized selector + PCA artifacts
+- Per-dataset reports (feature report, metadata, selected/removed features)
+
+### Engine A — Baseline Models (Layer 3)
+
+- Centralized GPU/hardware detection (`src/utils/hardware.py`) with automatic CUDA selection and CPU fallback (no training-based probes)
+- Model interface + registry: XGBoost (GPU), LightGBM (attempts GPU, falls back to CPU with a warning), Isolation Forest (anomaly)
+- Reproducible, configuration-driven training orchestrator (no leakage; train-only fitting) with a defensive minimum-rows guard against accidental data subsets
+- Full metric suite: precision, recall, F1, ROC-AUC (multiclass computed over the complete fitted label set), false-positive rate, confusion matrix
+- Experiment tracking with unique, never-overwritten run directories
+- Per-run artifacts: serialized model, metrics, and a manifest (config snapshot, hardware, timings, model size)
+
 ### Software Quality
 
 - Unit testing
@@ -83,14 +103,16 @@ The architecture is designed to support additional intrusion detection datasets 
 
 ## 🚧 Current Phase
 
-Development is now focused on feature engineering ahead of model training.
+The Engine A baseline training framework is implemented and verified by tests.
+Models are trained manually (Human-in-the-Loop). Development is now moving
+toward model evaluation, comparison, and tuning.
 
 This includes:
 
-- Domain-specific feature derivation
-- Feature selection and importance analysis
-- Correlation and redundancy reduction
-- Feature-set versioning
+- Manual training runs on NSL-KDD, UNSW-NB15, CICIDS2017
+- Cross-model comparison and metric reporting
+- Hyperparameter tuning
+- Explainability (SHAP / feature importance)
 
 ---
 
@@ -155,6 +177,7 @@ NIMS/
 ├── scripts/
 ├── src/
 │   ├── data/
+│   ├── features/
 │   ├── models/
 │   ├── training/
 │   ├── evaluation/
@@ -200,6 +223,35 @@ outputs/processed/<id>/{train,validation,test}.parquet
 outputs/artifacts/<id>/{encoder,scaler,label_encoder}.joblib
 ```
 
+Run feature engineering (variance → correlation → selection → optional PCA):
+
+```bash
+python -m scripts.run_feature_engineering --dataset nsl_kdd
+python -m scripts.run_feature_engineering --all
+```
+
+Feature-engineering outputs are written per dataset under:
+
+```text
+outputs/features/<id>/{train,validation,test}.parquet
+outputs/features/<id>/{feature_report,feature_metadata,selected_features,removed_features}.json
+outputs/artifacts/<id>/{feature_selector,pca}.joblib
+```
+
+Train Engine A models (GPU is auto-detected; falls back to CPU):
+
+```bash
+python -m scripts.train_model --dataset nsl_kdd --model xgboost
+python -m scripts.train_model --dataset nsl_kdd --all-models
+python -m scripts.train_model --all-datasets --all-models
+```
+
+Each run writes an isolated, never-overwritten experiment:
+
+```text
+outputs/experiments/<id>/<model>/<run_id>/{model.joblib,metrics.json,manifest.json}
+```
+
 Run the test suite:
 
 ```bash
@@ -229,8 +281,9 @@ NIMS is built around the following principles:
 - ✅ Dataset validation
 - ✅ Dataset auditing
 - ✅ Data preprocessing
-- 🚧 Feature engineering
-- ⏳ Machine learning models
+- ✅ Feature engineering
+- ✅ Engine A baseline model framework (XGBoost, LightGBM, Isolation Forest)
+- 🚧 Model evaluation & tuning
 - ⏳ Deep learning models
 - ⏳ Hyperparameter optimization
 - ⏳ Model explainability
@@ -241,9 +294,9 @@ NIMS is built around the following principles:
 
 # Current Status
 
-**Current Development Stage:** Feature Engineering
+**Current Development Stage:** Engine A Model Training & Evaluation
 
-The data engineering foundation and the configuration-driven preprocessing pipeline are complete, including dataset ingestion, validation, profiling, fingerprinting, auditing, cleaning, encoding, scaling, and reproducible splitting with persisted artifacts. Development is now progressing toward feature engineering to prepare feature sets for downstream machine learning and deep learning workflows.
+The data engineering, preprocessing, and feature-engineering layers are complete, and the Engine A baseline training framework (GPU-aware XGBoost, LightGBM, and Isolation Forest with reproducible experiment tracking and a full metric suite) is implemented and tested. Per the Human-in-the-Loop policy, models are trained manually; development is now progressing toward training runs, cross-model evaluation, and tuning.
 
 ---
 

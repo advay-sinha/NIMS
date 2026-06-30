@@ -23,7 +23,5 @@ defaults:
   - paths.yaml
   - logging.yaml
   - data.yaml
-
-# Phase 1 only operates on the data layer. Model / training configuration
-# is intentionally absent and will be added in later phases.
-# TODO(phase-2): add `defaults: training.yaml` once baseline models land.
+  - features.yaml
+  - training.yaml

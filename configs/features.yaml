@@ -1,0 +1,58 @@
+# NetSentinel — Feature Engineering Configuration (Phase 3)
+#
+# The entire feature-engineering pipeline is driven from this file. Nothing is
+# hardcoded in Python. Stages run in order: variance -> correlation ->
+# statistical selection -> optional PCA. Every selector is FIT ON TRAINING DATA
+# ONLY; validation/test sets are transformed with the fitted artefacts.
+
+features:
+  # Reproducibility. Falls back to project.seed when null.
+  random_seed: null
+
+  # Extra columns to exclude from features before selection, in addition to the
+  # always-excluded provenance/metadata columns (split, source_file, attack_cat,
+  # ...) and any non-numeric columns. Empty by default.
+  exclude_columns: []
+
+  # 1. Variance threshold — drop constant / near-constant features.
+  variance:
+    enabled: true
+    threshold: 0.0            # remove features with variance <= threshold
+
+  # 2. Correlation filtering — drop one of each highly correlated pair.
+  correlation:
+    enabled: true
+    method: pearson           # one of: pearson | spearman
+    threshold: 0.95           # |corr| >= threshold marks a redundant pair
+
+  # 3. Statistical / model-based feature selection.
+  selection:
+    enabled: true
+    method: mutual_information  # mutual_information | chi_square | anova
+                                # | tree_importance | rfe
+    number_of_features: 30      # top-k to retain; null = keep all ranked
+
+  # Tree-based importance (used by method: tree_importance and by RFE).
+  importance:
+    n_estimators: 200
+    max_depth: null
+
+  # Recursive Feature Elimination (used by method: rfe).
+  rfe:
+    n_estimators: 100
+    step: 1
+
+  # 4. Optional dimensionality reduction.
+  dimensionality:
+    pca:
+      enabled: false
+      explained_variance: 0.95  # retain components explaining this fraction
+
+  # Output controls.
+  reports:
+    enabled: true
+  artifacts:
+    save: true
+  io:
+    format: parquet             # one of: parquet | csv
+    compression: snappy

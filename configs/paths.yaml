@@ -33,6 +33,14 @@ paths:
   processed_out_dir: outputs/processed
   artifacts_dir: outputs/artifacts
 
+  # Phase 3 feature-engineering outputs (transformed datasets + reports),
+  # namespaced per dataset (e.g. outputs/features/nsl_kdd/).
+  features_out_dir: outputs/features
+
+  # Phase 4 training experiments (models, metrics, manifests), namespaced as
+  # outputs/experiments/<dataset>/<model>/<run_id>/.
+  experiments_dir: outputs/experiments
+
   # Raw dataset roots. Names contain spaces / vendor quirks on disk, so they
   # are spelled out explicitly here rather than derived from the dataset id.
   raw:

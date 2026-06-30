@@ -67,6 +67,10 @@ class Paths:
     preprocessing_dir: Path
     processed_out_dir: Path
     artifacts_dir: Path
+    # Phase 3 feature-engineering outputs (transformed datasets + reports).
+    features_out_dir: Path
+    # Phase 4 training experiment outputs (models, metrics, manifests).
+    experiments_dir: Path
     # Mapping of dataset id -> read-only raw directory.
     raw: Mapping[str, Path]
 
@@ -120,6 +124,8 @@ class Paths:
             preprocessing_dir=resolve("preprocessing_dir"),
             processed_out_dir=resolve("processed_out_dir"),
             artifacts_dir=resolve("artifacts_dir"),
+            features_out_dir=resolve("features_out_dir"),
+            experiments_dir=resolve("experiments_dir"),
             raw=raw,
         )
 
