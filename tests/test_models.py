@@ -61,6 +61,44 @@ def test_supervised_model_fit_predict(name: str, xy) -> None:
     assert model.is_supervised is True
 
 
+def test_isolation_forest_explicit_n_jobs_from_config(xy) -> None:
+    """Regression: config-provided n_jobs must not collide with a hardcoded one."""
+    x, _ = xy
+    model = registry.build_model(
+        "isolation_forest", _cfg({"n_estimators": 10, "n_jobs": 1}), use_gpu=False, seed=42
+    )
+    model.fit(x)  # would raise TypeError if n_jobs were passed twice
+    assert model.model.n_jobs == 1
+
+
+def test_isolation_forest_defaults_n_jobs_when_unset(xy) -> None:
+    x, _ = xy
+    model = registry.build_model(
+        "isolation_forest", _cfg({"n_estimators": 10}), use_gpu=False, seed=42
+    )
+    model.fit(x)
+    assert model.model.n_jobs == -1
+
+
+def test_isolation_forest_accepts_training_yaml_params(xy) -> None:
+    """Regression: the full isolation_forest params block from configs/training.yaml
+    (which includes n_jobs and random_state) must construct without duplicate
+    keyword errors, and every user-configured hyperparameter must be preserved."""
+    import yaml
+
+    x, _ = xy
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "training.yaml"
+    with cfg_path.open(encoding="utf-8") as fh:
+        model_cfg = yaml.safe_load(fh)["models"]["isolation_forest"]
+
+    model = registry.build_model("isolation_forest", model_cfg, use_gpu=False, seed=42)
+    model.fit(x)
+
+    fitted = model.model.get_params()
+    for key, value in model_cfg["params"].items():
+        assert fitted[key] == value, f"hyperparameter {key!r} not preserved"
+
+
 def test_isolation_forest_is_unsupervised(xy) -> None:
     x, y = xy
     model = registry.build_model(

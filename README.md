@@ -91,6 +91,12 @@ The architecture is designed to support additional intrusion detection datasets 
 - Full metric suite: precision, recall, F1, ROC-AUC (multiclass computed over the complete fitted label set), false-positive rate, confusion matrix
 - Experiment tracking with unique, never-overwritten run directories
 - Per-run artifacts: serialized model, metrics, and a manifest (config snapshot, hardware, timings, model size)
+- Isolation Forest config hardening: config-provided `n_jobs` no longer collides with the wrapper default (regression-tested against `configs/training.yaml`)
+
+### Model Diagnostics
+
+- First NSL-KDD training runs completed for XGBoost (test F1 ≈ 0.992) and LightGBM (test F1 ≈ 0.682)
+- Root-cause diagnostic for the LightGBM gap: severe underfitting traced to the OpenCL GPU tree learner combined with `max_bin: 63` (see `outputs/reports/nsl_kdd_lightgbm_vs_xgboost_diagnostic.md`)
 
 ### Software Quality
 
@@ -113,6 +119,10 @@ This includes:
 - Cross-model comparison and metric reporting
 - Hyperparameter tuning
 - Explainability (SHAP / feature importance)
+
+Immediate next step (manual, HITL): re-run LightGBM on NSL-KDD on CPU with
+default binning to confirm the GPU/`max_bin` diagnosis from the diagnostic
+report before any hyperparameter tuning.
 
 ---
 
