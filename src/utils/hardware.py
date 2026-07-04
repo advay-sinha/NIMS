@@ -164,6 +164,33 @@ def log_hardware_summary() -> dict[str, Any]:
     return info
 
 
+def configure_cuda_performance(
+    tf32: bool = True, cudnn_benchmark: bool = True
+) -> None:
+    """Apply CUDA throughput settings (no-op without a CUDA GPU).
+
+    Parameters
+    ----------
+    tf32:
+        Allow TensorFloat-32 matmul/conv kernels on Ampere+ GPUs. Roughly
+        doubles float32 throughput at a precision level that is irrelevant
+        for classification losses.
+    cudnn_benchmark:
+        Let cuDNN auto-tune the fastest kernels for the observed input
+        shapes. Beneficial when batch shapes are constant (our loaders).
+    """
+    if not cuda_available():
+        return
+    import torch
+
+    torch.backends.cuda.matmul.allow_tf32 = bool(tf32)
+    torch.backends.cudnn.allow_tf32 = bool(tf32)
+    torch.backends.cudnn.benchmark = bool(cudnn_benchmark)
+    logger.info(
+        "CUDA performance config: tf32=%s cudnn_benchmark=%s", tf32, cudnn_benchmark
+    )
+
+
 def supports_xgboost_gpu() -> bool:
     """Return whether XGBoost can train on GPU (CUDA build + visible GPU)."""
     if not cuda_available():

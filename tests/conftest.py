@@ -9,6 +9,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+# DLL load-order guard (see scripts/_bootstrap.py): pyarrow must load its
+# native libraries before torch on this platform or parquet reads segfault.
+try:  # pragma: no cover
+    import pyarrow.dataset  # noqa: F401
+except ImportError:
+    pass
+
 import pytest
 
 from src.utils.paths import Paths

@@ -28,6 +28,8 @@ from typing import Any, Mapping
 from src.features.metadata import select_feature_columns, split_xy
 from src.models.registry import build_model
 from src.training.experiment import build_manifest, create_experiment
+from src.training.experiment_index import append_index_row
+from src.training.feature_audit import audit_features, load_expected_features
 from src.training.metrics import classification_metrics
 from src.utils.config import load_dataset_config
 from src.utils.hardware import log_hardware_summary
@@ -148,7 +150,8 @@ def train_model(
     logger.info("Training '%s' on dataset '%s' (seed=%d).", model_name, dataset_id, seed)
     hardware = log_hardware_summary()
 
-    splits = _load_splits(Path(paths.features_out_dir) / dataset_id, label_column)
+    feat_dir = Path(paths.features_out_dir) / dataset_id
+    splits = _load_splits(feat_dir, label_column)
     x_train, y_train = splits["train"]
     x_val, y_val = splits.get("validation", (None, None))
 
@@ -172,6 +175,10 @@ def train_model(
         f"rows (expected > {min_train_rows}); the full feature-engineered split "
         f"was not loaded. Check the data path for an accidental subset."
     )
+
+    # Pre-fit feature audit: columns, order, dtypes, missing values, duplicates
+    # verified against the feature-engineering artefacts for every split.
+    audit_features(splits, load_expected_features(feat_dir), dataset_id, model_name)
 
     model = build_model(model_name, models_cfg[model_name], use_gpu, seed)
 
@@ -253,6 +260,16 @@ def _persist_experiment(**kw: Any) -> TrainingResult:
         seed=kw["seed"],
     )
     manifest_path = write_json(manifest, out_dir / "manifest.json")
+    try:
+        append_index_row(manifest, Path(paths.experiments_dir))
+    except OSError as exc:
+        # A locked index (e.g. the CSV open in Excel) must not fail a run whose
+        # artefacts are already persisted; the index is rebuildable from the
+        # manifests via scripts/build_experiment_index.py.
+        logger.error(
+            "Experiment index update failed (%s); run 'python -m "
+            "scripts.build_experiment_index' to backfill.", exc,
+        )
 
     logger.info(
         "[%s/%s] model saved (%.1f KB); experiment %s complete.",

@@ -128,3 +128,127 @@ def test_describe_reports_metadata(xy) -> None:
     assert desc["name"] == "lightgbm"
     assert desc["supervised"] is True
     assert "params" in desc
+    assert desc["fitted_params"] is None  # not fitted yet
+
+
+def test_lightgbm_fitted_params_record_effective_device(xy) -> None:
+    """Regression: manifests recorded the *configured* device (gpu) while the
+    estimator actually trained on cpu after fallback. The final constructed
+    parameter dict must be captured for provenance."""
+    x, y = xy
+    model = registry.build_model(
+        "lightgbm",
+        _cfg({"n_estimators": 5, "num_leaves": 7, "device": "gpu", "max_bin": 63}),
+        use_gpu=False,  # forces the CPU path regardless of configured device
+        seed=42,
+    )
+    model.fit(x, y)
+    assert model.fitted_params is not None
+    assert model.fitted_params["device"] == "cpu"
+    assert model.fitted_params["max_bin"] == 63
+    # Configured params stay untouched (both views are persisted).
+    assert model.params["device"] == "gpu"
+    assert model.describe()["fitted_params"]["device"] == "cpu"
+
+
+@pytest.mark.parametrize("name", ["xgboost", "isolation_forest"])
+def test_fitted_params_captured_after_fit(name: str, xy) -> None:
+    x, y = xy
+    model = registry.build_model(name, _cfg({"n_estimators": 5}), use_gpu=False, seed=42)
+    model.fit(x, y)
+    assert model.fitted_params is not None
+    assert model.fitted_params["n_estimators"] == 5
+
+
+# ------------------------------------------ XGBoost objective reconciliation
+#
+# Regression for the UNSW-NB15 failure: configs/training.yaml sets
+# objective=multi:softprob for every dataset, but the XGBoost sklearn wrapper
+# only injects num_class when it observes more than two classes. On the binary
+# UNSW-NB15 target the core booster then aborted with
+# "value 0 for Parameter num_class should be greater equal to 1".
+
+
+def _xgboost_yaml_params() -> dict:
+    """The real xgboost params block from configs/training.yaml (shrunk trees)."""
+    import yaml
+
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "training.yaml"
+    with cfg_path.open(encoding="utf-8") as fh:
+        params = dict(yaml.safe_load(fh)["models"]["xgboost"]["params"])
+    params["n_estimators"] = 5  # keep the test fast; objective path unchanged
+    return params
+
+
+def _class_data(n_classes: int, n: int = 200) -> tuple[pd.DataFrame, pd.Series]:
+    rng = np.random.default_rng(7)
+    y = pd.Series(np.arange(n) % n_classes, name="label")
+    x = pd.DataFrame(
+        {
+            "f1": y + rng.normal(0, 0.1, n),
+            "f2": rng.normal(size=n),
+            "f3": rng.normal(size=n),
+        }
+    )
+    return x, y
+
+
+@pytest.mark.parametrize(
+    ("dataset_like", "n_classes"),
+    [("unsw_nb15", 2), ("cicids2017", 15), ("nsl_kdd", 40)],
+)
+def test_xgboost_yaml_objective_fits_every_dataset_cardinality(
+    dataset_like: str, n_classes: int
+) -> None:
+    """The production objective config must fit binary and multiclass targets."""
+    x, y = _class_data(n_classes)
+    model = registry.build_model(
+        "xgboost", _cfg(_xgboost_yaml_params()), use_gpu=False, seed=42
+    )
+    model.fit(x, y, x, y)  # config early_stopping_rounds needs an eval set
+    assert model.model.n_classes_ == n_classes
+    proba = model.predict_proba(x)
+    assert proba.shape == (len(y), n_classes)
+
+
+def test_xgboost_binary_target_switches_to_binary_objective() -> None:
+    x, y = _class_data(2)
+    model = registry.build_model(
+        "xgboost", _cfg(_xgboost_yaml_params()), use_gpu=False, seed=42
+    )
+    model.fit(x, y, x, y)
+    assert model.fitted_params["objective"] == "binary:logistic"
+    assert model.fitted_params["eval_metric"] == "logloss"
+    # Configured params stay untouched (provenance keeps both views).
+    assert model.params["objective"] == "multi:softprob"
+    assert model.params["eval_metric"] == "mlogloss"
+
+
+def test_xgboost_multiclass_target_keeps_configured_objective() -> None:
+    x, y = _class_data(15)
+    model = registry.build_model(
+        "xgboost", _cfg(_xgboost_yaml_params()), use_gpu=False, seed=42
+    )
+    model.fit(x, y, x, y)
+    assert model.fitted_params["objective"] == "multi:softprob"
+    assert model.fitted_params["eval_metric"] == "mlogloss"
+
+
+def test_reconcile_multiclass_objective_unit() -> None:
+    from src.models.xgboost_model import _reconcile_multiclass_objective
+
+    # Binary target + multiclass objective: switched, metrics mapped (list too).
+    params = {"objective": "multi:softmax", "eval_metric": ["mlogloss", "auc"]}
+    _reconcile_multiclass_objective(params, 2)
+    assert params["objective"] == "binary:logistic"
+    assert params["eval_metric"] == ["logloss", "auc"]
+
+    # Multiclass target: untouched.
+    params = {"objective": "multi:softprob", "eval_metric": "mlogloss"}
+    _reconcile_multiclass_objective(params, 40)
+    assert params == {"objective": "multi:softprob", "eval_metric": "mlogloss"}
+
+    # Non-multiclass objective: untouched regardless of class count.
+    params = {"objective": "binary:logistic"}
+    _reconcile_multiclass_objective(params, 2)
+    assert params == {"objective": "binary:logistic"}

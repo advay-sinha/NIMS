@@ -15,6 +15,18 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+# DLL load-order guard: with torch 2.6.0+cu124 and pyarrow 24.0 on Windows,
+# importing torch before pyarrow.dataset makes the pyarrow import crash the
+# process with an access violation (observed: every training run on
+# 2026-07-03 died at the features parquet read with no traceback). Loading
+# pyarrow's native libraries first is safe in both orders, so every entry
+# point preloads it before anything (seeding, hardware detection) imports
+# torch.
+try:  # pragma: no cover - depends on the installed environment
+    import pyarrow.dataset  # noqa: F401  (import for DLL side effect only)
+except ImportError:
+    pass
+
 from src.utils.config import DEFAULT_CONFIG_PATH, load_config
 from src.utils.logging_utils import setup_logging
 from src.utils.paths import Paths

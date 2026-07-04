@@ -65,6 +65,13 @@ def _roc_auc(
     ``labels`` must be the COMPLETE class list the model was fitted on so that
     the columns of ``y_proba`` align with the class set (otherwise multiclass
     ROC-AUC fails whenever a split is missing a class).
+
+    Multiclass AUC is computed one-vs-rest per class and then averaged. A class
+    that is absent from ``y_true`` has no positive samples, so its one-vs-rest
+    AUC is mathematically undefined; such classes are SKIPPED (not scored, not
+    warned about by sklearn) and the average runs over the computable classes
+    only. With ``average="weighted"`` the skipped classes carry zero support,
+    so this equals sklearn's result whenever sklearn can compute one.
     """
     if y_proba is None:
         return None
@@ -73,14 +80,69 @@ def _roc_auc(
     try:
         if len(labels) == 2:
             return float(roc_auc_score(y_true, y_proba[:, 1], labels=labels))
-        return float(
-            roc_auc_score(
-                y_true, y_proba, multi_class="ovr", average=average, labels=labels
-            )
-        )
+        return _multiclass_ovr_auc(y_true, y_proba, labels, average)
     except (ValueError, IndexError) as exc:
         logger.warning("ROC-AUC could not be computed: %s", exc)
         return None
+
+
+def _multiclass_ovr_auc(
+    y_true: "Any",
+    y_proba: "Any",
+    labels: list[int],
+    average: str,
+) -> float | None:
+    """One-vs-rest multiclass ROC-AUC over the classes present in ``y_true``.
+
+    Parameters
+    ----------
+    y_true:
+        Ground-truth labels for this split.
+    y_proba:
+        Class probabilities with one column per entry of ``labels``.
+    labels:
+        The complete fitted class list (column order of ``y_proba``).
+    average:
+        ``"weighted"`` (support-weighted) or any other value for a plain
+        (macro) mean over the computable classes.
+
+    Returns
+    -------
+    float | None
+        The averaged AUC, or ``None`` when no class is computable (fewer than
+        two distinct classes in ``y_true``).
+    """
+    import numpy as np
+    from sklearn.metrics import roc_auc_score
+
+    y_true = np.asarray(y_true)
+    present = set(np.unique(y_true).tolist())
+    if len(present) < 2:
+        logger.warning(
+            "ROC-AUC skipped: only %d class(es) present in y_true.", len(present)
+        )
+        return None
+
+    aucs: list[float] = []
+    supports: list[int] = []
+    skipped: list[int] = []
+    for column, label in enumerate(labels):
+        if label not in present:
+            skipped.append(label)
+            continue
+        positive = (y_true == label).astype(int)
+        aucs.append(float(roc_auc_score(positive, y_proba[:, column])))
+        supports.append(int(positive.sum()))
+
+    if skipped:
+        logger.debug(
+            "ROC-AUC: skipped %d class(es) absent from y_true "
+            "(one-vs-rest AUC undefined): %s", len(skipped), skipped,
+        )
+
+    if average == "weighted":
+        return float(np.average(aucs, weights=supports))
+    return float(np.mean(aucs))
 
 
 def classification_metrics(

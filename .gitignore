@@ -14,13 +14,16 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# Pipeline artefacts (regenerated; never committed)
+# Pipeline artefacts (regenerated; never committed).
+# Root-anchored (leading /): an unanchored `models/` also ignored the
+# src/models/ production package, silently keeping every model wrapper
+# out of version control.
 data/interim/
 data/processed/
 data/features/
 data/metadata/
-models/
-outputs/
+/models/
+/outputs/
 
 # Keep empty stage dirs tracked
 !**/.gitkeep

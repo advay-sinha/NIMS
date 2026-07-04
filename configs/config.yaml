@@ -25,3 +25,4 @@ defaults:
   - data.yaml
   - features.yaml
   - training.yaml
+  - deep_learning.yaml

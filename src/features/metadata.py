@@ -56,6 +56,34 @@ def split_xy(frame: "Any", label_column: str) -> tuple["Any", "Any"]:
     return x, y
 
 
+def filter_provenance_names(
+    names: Iterable[str],
+    extra_exclude: Iterable[str] = (),
+) -> list[str]:
+    """Drop provenance/metadata column names from a feature-name list.
+
+    The single canonical predicate for "is this column a model feature by
+    name": both the trainer's matrix reduction
+    (:func:`select_feature_columns`) and the pre-fit feature audit's expected
+    list derive from it, so they can never disagree about provenance columns.
+
+    Parameters
+    ----------
+    names:
+        Candidate feature names, in order.
+    extra_exclude:
+        Additional column names to exclude (matched case-insensitively).
+
+    Returns
+    -------
+    list[str]
+        ``names`` with provenance/excluded entries removed, order preserved.
+    """
+    exclude = {name.lower() for name in PROVENANCE_COLUMNS}
+    exclude.update(str(name).lower() for name in extra_exclude)
+    return [str(name) for name in names if str(name).lower() not in exclude]
+
+
 def select_feature_columns(
     x: "Any",
     extra_exclude: Iterable[str] = (),
@@ -81,10 +109,8 @@ def select_feature_columns(
     """
     import numpy as np
 
-    exclude_names = {name.lower() for name in PROVENANCE_COLUMNS}
-    exclude_names.update(str(c).lower() for c in extra_exclude)
-
-    provenance = [c for c in x.columns if str(c).lower() in exclude_names]
+    kept = set(filter_provenance_names(x.columns, extra_exclude))
+    provenance = [c for c in x.columns if str(c) not in kept]
     remaining = x.drop(columns=provenance) if provenance else x
 
     numeric_cols = list(remaining.select_dtypes(include=[np.number]).columns)

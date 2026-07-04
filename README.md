@@ -88,15 +88,28 @@ The architecture is designed to support additional intrusion detection datasets 
 - Centralized GPU/hardware detection (`src/utils/hardware.py`) with automatic CUDA selection and CPU fallback (no training-based probes)
 - Model interface + registry: XGBoost (GPU), LightGBM (attempts GPU, falls back to CPU with a warning), Isolation Forest (anomaly)
 - Reproducible, configuration-driven training orchestrator (no leakage; train-only fitting) with a defensive minimum-rows guard against accidental data subsets
-- Full metric suite: precision, recall, F1, ROC-AUC (multiclass computed over the complete fitted label set), false-positive rate, confusion matrix
+- Pre-fit feature audit before every model fit: column names, order, dtypes, missing values and duplicates verified against the feature-engineering artifacts (`src/training/feature_audit.py`)
+- Full metric suite: precision, recall, F1, ROC-AUC, false-positive rate, confusion matrix
+- Multiclass ROC-AUC computed one-vs-rest over the complete fitted label set; classes absent from a split (undefined one-vs-rest AUC) are skipped mathematically instead of producing sklearn `UndefinedMetricWarning`s or NaN averages
 - Experiment tracking with unique, never-overwritten run directories
+- Searchable experiment index (`outputs/experiments/experiment_index.csv`): every run appends one summary row (timestamp, dataset, model, run id, train time, epochs, test accuracy/F1/ROC-AUC, hardware, key hyperparameters); `scripts/build_experiment_index.py` rebuilds it from the manifests
 - Per-run artifacts: serialized model, metrics, and a manifest (config snapshot, hardware, timings, model size)
+- Parameter provenance: manifests record both the configured hyperparameters and the estimator's final parameter dictionary captured at fit time (`fitted_params`), so device fallbacks and library defaults are always visible
 - Isolation Forest config hardening: config-provided `n_jobs` no longer collides with the wrapper default (regression-tested against `configs/training.yaml`)
 
-### Model Diagnostics
+### Model Validation & Diagnostics
 
-- First NSL-KDD training runs completed for XGBoost (test F1 ≈ 0.992) and LightGBM (test F1 ≈ 0.682)
-- Root-cause diagnostic for the LightGBM gap: severe underfitting traced to the OpenCL GPU tree learner combined with `max_bin: 63` (see `outputs/reports/nsl_kdd_lightgbm_vs_xgboost_diagnostic.md`)
+- Training runs completed on NSL-KDD, UNSW-NB15 and CICIDS2017 (XGBoost test F1 ≈ 0.992–0.999; LightGBM multiclass runs underperform, see below)
+- Aggregated benchmark report generator (`scripts/generate_validation_report.py`) producing `outputs/reports/model_validation_report.md` from the run manifests: per-model summaries, cross-model comparison tables, timings, model sizes and train/validation/test metrics
+- Root-cause diagnosis of the LightGBM multiclass gap, evidenced from the saved boosters: unregularized leaf outputs under 40-class softmax (`reg_lambda=0`, near-zero hessian sums) make validation loss diverge and boosting collapse after ~30 of 400 iterations, aggravated by the GPU-oriented `max_bin: 63` remaining active on CPU runs; recommended parameter changes are documented in the validation report (pending manual re-training)
+
+### Engine B — Deep Learning Framework (Layer 3)
+
+- PyTorch model family integrated behind the same model interface as Engine A: MLP, 1D-CNN, LSTM and Transformer over tabular feature vectors (`src/models/deep_learning/`)
+- Shared training engine (`src/models/deep_learning/base.py`): train/validation loops, early stopping with in-memory best-model restore, learning-rate scheduling (plateau/cosine/step), mixed precision (`torch.amp`), gradient accumulation and clipping, optional checkpointing, per-epoch logging (loss, learning rate, time, GPU memory) and deterministic seeding
+- Fully configuration-driven via `configs/deep_learning.yaml` (shared training block + per-model architecture parameters)
+- CUDA selected automatically through the central hardware module with CPU fallback; pinned DataLoaders and non-blocking transfers on GPU
+- Reuses the existing trainer, metric suite, experiment tracking and manifests — deep models train through the same entry point and produce identical run artifacts
 
 ### Software Quality
 
@@ -109,20 +122,22 @@ The architecture is designed to support additional intrusion detection datasets 
 
 ## 🚧 Current Phase
 
-The Engine A baseline training framework is implemented and verified by tests.
-Models are trained manually (Human-in-the-Loop). Development is now moving
-toward model evaluation, comparison, and tuning.
+The Engine A training pipeline has been audited and stabilized: metric
+correctness (ROC-AUC on splits with missing classes), parameter provenance in
+manifests, and a mandatory pre-fit feature audit are in place, and the
+cross-model benchmark report is generated from the run manifests. Models are
+trained manually on local hardware.
 
-This includes:
+Remaining in this phase:
 
-- Manual training runs on NSL-KDD, UNSW-NB15, CICIDS2017
-- Cross-model comparison and metric reporting
+- Run the deep-learning baselines (MLP, CNN, LSTM, Transformer) on
+  NSL-KDD, UNSW-NB15 and CICIDS2017 and add them to the benchmark report
+- Apply the recommended LightGBM parameter changes from
+  `outputs/reports/model_validation_report.md` and re-train on NSL-KDD /
+  CICIDS2017 to confirm the divergence diagnosis
+- Train XGBoost on UNSW-NB15 (missing from the current benchmark)
 - Hyperparameter tuning
 - Explainability (SHAP / feature importance)
-
-Immediate next step (manual, HITL): re-run LightGBM on NSL-KDD on CPU with
-default binning to confirm the GPU/`max_bin` diagnosis from the diagnostic
-report before any hyperparameter tuning.
 
 ---
 
@@ -139,11 +154,11 @@ report before any hyperparameter tuning.
 
 ## Deep Learning
 
-- Multi-Layer Perceptron (MLP)
-- LSTM
-- CNN
-- Autoencoder-based anomaly detection
-- Transformer-based architectures
+- Multi-Layer Perceptron (MLP) — framework implemented
+- LSTM — framework implemented
+- CNN (1D) — framework implemented
+- Transformer encoder — framework implemented
+- Autoencoder-based anomaly detection — planned
 
 ## Evaluation
 
@@ -248,18 +263,40 @@ outputs/features/<id>/{feature_report,feature_metadata,selected_features,removed
 outputs/artifacts/<id>/{feature_selector,pca}.joblib
 ```
 
-Train Engine A models (GPU is auto-detected; falls back to CPU):
+Train models (GPU is auto-detected; falls back to CPU). Classical (Engine A)
+and deep-learning models share the same entry point and output format:
 
 ```bash
 python -m scripts.train_model --dataset nsl_kdd --model xgboost
+python -m scripts.train_model --dataset nsl_kdd --model mlp
+python -m scripts.train_model --dataset nsl_kdd --model transformer
 python -m scripts.train_model --dataset nsl_kdd --all-models
 python -m scripts.train_model --all-datasets --all-models
 ```
+
+Deep-learning hyperparameters (batch size, epochs, optimizer, scheduler,
+early stopping, mixed precision, gradient clipping/accumulation) live in
+`configs/deep_learning.yaml`.
 
 Each run writes an isolated, never-overwritten experiment:
 
 ```text
 outputs/experiments/<id>/<model>/<run_id>/{model.joblib,metrics.json,manifest.json}
+```
+
+Generate the cross-model validation report from the recorded experiments:
+
+```bash
+python -m scripts.generate_validation_report
+python -m scripts.generate_validation_report --analysis outputs/reports/model_validation_analysis.md
+```
+
+The report is written to `outputs/reports/model_validation_report.md`.
+
+Rebuild the searchable experiment index (new runs append automatically):
+
+```bash
+python -m scripts.build_experiment_index
 ```
 
 Run the test suite:
@@ -293,8 +330,10 @@ NIMS is built around the following principles:
 - ✅ Data preprocessing
 - ✅ Feature engineering
 - ✅ Engine A baseline model framework (XGBoost, LightGBM, Isolation Forest)
+- ✅ Training-pipeline validation & benchmark reporting
+- ✅ Deep-learning model framework (MLP, CNN, LSTM, Transformer)
 - 🚧 Model evaluation & tuning
-- ⏳ Deep learning models
+- ⏳ Deep-learning training runs & comparison
 - ⏳ Hyperparameter optimization
 - ⏳ Model explainability
 - ⏳ Model deployment
@@ -304,9 +343,9 @@ NIMS is built around the following principles:
 
 # Current Status
 
-**Current Development Stage:** Engine A Model Training & Evaluation
+**Current Development Stage:** Deep-Learning Baselines & Model Evaluation
 
-The data engineering, preprocessing, and feature-engineering layers are complete, and the Engine A baseline training framework (GPU-aware XGBoost, LightGBM, and Isolation Forest with reproducible experiment tracking and a full metric suite) is implemented and tested. Per the Human-in-the-Loop policy, models are trained manually; development is now progressing toward training runs, cross-model evaluation, and tuning.
+The data engineering, preprocessing, and feature-engineering layers are complete. The Engine A baseline framework (GPU-aware XGBoost, LightGBM, Isolation Forest) has been audited end-to-end — metric correctness, parameter provenance, and pre-fit feature validation — with benchmark results aggregated into a cross-model validation report. The deep-learning framework (MLP, 1D-CNN, LSTM, Transformer behind the same model interface, with mixed precision, early stopping, and configuration-driven training) is implemented and tested. Models are trained manually on local hardware; the next milestone is running and benchmarking the deep-learning baselines alongside the classical models.
 
 ---
 

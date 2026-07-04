@@ -128,6 +128,61 @@ def test_subset_training_matrix_is_rejected(monkeypatch, paths) -> None:
         trainer.train_model("demo", "xgboost", cfg, paths)
 
 
+def test_manifest_records_fitted_params(monkeypatch, paths) -> None:
+    """Regression: the manifest must persist the estimator's FINAL parameter
+    dict (get_params() at fit time), not only the configured params."""
+    _patch(monkeypatch)
+    _write_features(paths)
+    result = trainer.train_model("demo", "xgboost", _config(), paths)
+    manifest = read_json(result.output_paths["manifest"])
+    fitted = manifest["model"]["fitted_params"]
+    assert fitted is not None
+    assert fitted["n_estimators"] == 8
+    assert fitted["device"] == "cpu"
+
+
+def test_feature_audit_rejects_nan_split(monkeypatch, paths) -> None:
+    """A split containing missing values must abort before fitting."""
+    from src.training.feature_audit import FeatureAuditError
+
+    _patch(monkeypatch)
+    feat_dir = Path(paths.features_out_dir) / "demo"
+    for name, off in zip(("train", "validation", "test"), (0, 1, 2)):
+        frame = _feature_frame(seed=off)
+        if name == "validation":
+            frame.loc[0, "f1"] = np.nan
+        write_parquet(frame, feat_dir / f"{name}.parquet")
+    with pytest.raises(FeatureAuditError, match="missing values"):
+        trainer.train_model("demo", "xgboost", _config(), paths)
+
+
+def test_feature_audit_rejects_engineered_feature_mismatch(monkeypatch, paths) -> None:
+    """X_train must contain exactly the features recorded by feature engineering."""
+    from src.training.feature_audit import FeatureAuditError
+    from src.utils.io import write_json
+
+    _patch(monkeypatch)
+    _write_features(paths)  # columns f1, f2, f3
+    feat_dir = Path(paths.features_out_dir) / "demo"
+    write_json(
+        {"retained_features": ["f1", "f2", "f3", "f4_missing"]},
+        feat_dir / "feature_metadata.json",
+    )
+    with pytest.raises(FeatureAuditError, match="do not match"):
+        trainer.train_model("demo", "xgboost", _config(), paths)
+
+
+def test_feature_audit_accepts_matching_metadata(monkeypatch, paths) -> None:
+    from src.utils.io import write_json
+
+    _patch(monkeypatch)
+    _write_features(paths)
+    feat_dir = Path(paths.features_out_dir) / "demo"
+    write_json({"retained_features": ["f1", "f2", "f3"]}, feat_dir / "feature_metadata.json")
+    result = trainer.train_model("demo", "xgboost", _config(), paths)
+    assert result.output_dir.is_dir()
+
+
 def test_full_feature_matrix_passed_to_fit(monkeypatch, paths) -> None:
     """The model must receive the full split (no sampling/debug slice)."""
     _patch(monkeypatch)

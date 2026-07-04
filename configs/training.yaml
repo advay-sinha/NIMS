@@ -116,6 +116,8 @@ models:
   lightgbm:
 
     enabled: true
+    # OpenCL GPU training (device=gpu) verified working on this build; the
+    # first GPU run pays a one-time OpenCL kernel-compilation cost.
     gpu: true
 
     params:
@@ -132,7 +134,20 @@ models:
 
       colsample_bytree: 0.90
 
-      # GPU
+      # L2 leaf regularization. Without it (LightGBM default 0.0) the 40-class
+      # softmax objective yields near-zero hessian sums and unbounded leaf
+      # values (observed up to ~1.04e6 in run nsl_kdd_lightgbm_20260702T170411),
+      # making validation multi_logloss diverge after iteration ~30.
+      reg_lambda: 1.0
+
+      # GPU (OpenCL). Known limitation on CICIDS2017 (1.8M rows, 15 classes):
+      # the default single-precision GPU histograms trip the upstream check
+      # "best_split_info.right_count > 0" (serial_tree_learner.cpp:862) and the
+      # wrapper falls back to CPU. Reproduced and isolated on 2026-07-04:
+      # identical data/params fit cleanly with gpu_use_dp=true, so the cause is
+      # float32 histogram accumulation, not max_bin or the feature matrix.
+      # Note: OpenCL selects the first platform (here the AMD iGPU, gfx1103),
+      # not the RTX 4060; set gpu_platform_id/gpu_device_id to retarget.
       device: gpu
 
       # Recommended for GPU

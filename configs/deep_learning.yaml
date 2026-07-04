@@ -1,0 +1,110 @@
+# =============================================================================
+# NetSentinel — Engine B Deep-Learning Configuration
+# =============================================================================
+#
+# Deep-learning baselines (MLP, 1D-CNN, LSTM, Transformer). Merged into the
+# effective configuration via configs/config.yaml > defaults, so the existing
+# trainer (`python -m scripts.train_model --dataset <id> --model mlp`) picks
+# these models up with no code changes.
+#
+# The shared `deep_learning_training` block is referenced by every model via a
+# YAML anchor; per-model overrides are possible with a merge key, e.g.
+#   training: { <<: *deep_training, epochs: 30 }
+#
+# =============================================================================
+
+deep_learning_training: &deep_training
+  # Optimisation. Batch 4096 keeps the RTX 4060 (8 GB) fed on tabular
+  # feature matrices; these small networks leave VRAM headroom to spare.
+  batch_size: 4096
+  # All four models hit the previous 50-epoch cap with validation loss still
+  # improving (early stopping never fired in the 20260703 NSL-KDD runs); the
+  # budget was the binding constraint. Early stopping (patience 5) ends
+  # training automatically once converged, so the larger cap costs nothing.
+  epochs: 150
+  # Scaled with the batch size (conservative sub-linear scaling from the
+  # previous 0.001 @ 1024); the plateau scheduler adapts it downward.
+  learning_rate: 0.002
+  optimizer: adamw            # adam | adamw | sgd
+  scheduler: plateau          # none | plateau | cosine | step
+  weight_decay: 0.0001
+
+  # Regularisation / stability
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.0
+  gradient_clipping: 1.0      # max grad norm; 0 disables
+  gradient_accumulation_steps: 1
+
+  # Hardware (device itself comes from src/utils/hardware.py)
+  mixed_precision: true       # torch.amp autocast + GradScaler on CUDA
+  tf32: true                  # TensorFloat-32 matmul/conv on RTX GPUs
+  cudnn_benchmark: true       # cuDNN kernel autotuning (constant batch shapes)
+  # DataLoader parallelism. Data is already in-memory tensors, so extra
+  # workers only add process-spawn/IPC overhead on Windows — leave at 0.
+  num_workers: 0
+  prefetch_factor: 2
+  persistent_workers: false
+
+  # Artefacts / UX
+  checkpointing:
+    enabled: false            # best-model restore is always in-memory
+    dir: null
+  progress_bar: true
+
+  # Reproducibility: the run seed is injected by the trainer
+  # (training.random_seed); no separate seed is configured here.
+
+models:
+
+  # ===========================================================================
+  # Multi-Layer Perceptron
+  # ===========================================================================
+  mlp:
+    enabled: true
+    gpu: true
+    params:
+      training: *deep_training
+      hidden_layers: [256, 128, 64]
+      dropout: 0.2
+      batch_norm: true
+
+  # ===========================================================================
+  # 1D Convolutional Network
+  # ===========================================================================
+  cnn:
+    enabled: true
+    gpu: true
+    params:
+      training: *deep_training
+      channels: [32, 64, 128]
+      kernel_sizes: [5, 3, 3]
+      dropout: 0.2
+
+  # ===========================================================================
+  # LSTM
+  # ===========================================================================
+  lstm:
+    enabled: true
+    gpu: true
+    params:
+      training: *deep_training
+      hidden_size: 128
+      num_layers: 2
+      bidirectional: true
+      dropout: 0.2
+
+  # ===========================================================================
+  # Transformer Encoder
+  # ===========================================================================
+  transformer:
+    enabled: true
+    gpu: true
+    params:
+      training: *deep_training
+      embedding_dim: 64
+      num_heads: 4
+      num_layers: 2
+      dropout: 0.1
+      feedforward_dim: 256
