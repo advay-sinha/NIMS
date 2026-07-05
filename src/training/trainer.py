@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from src.explainability.runner import maybe_explain_after_training
 from src.features.metadata import select_feature_columns, split_xy
 from src.models.registry import build_model
 from src.training.experiment import build_manifest, create_experiment
@@ -188,7 +189,7 @@ def train_model(
     metrics, timings = _evaluate(model, splits, average)
     timings["train_seconds"] = round(train_timer.elapsed, 4)
 
-    return _persist_experiment(
+    result = _persist_experiment(
         dataset_id=dataset_id,
         model_name=model_name,
         model=model,
@@ -199,6 +200,9 @@ def train_model(
         timings=timings,
         seed=seed,
     )
+    # Post-training explainability (configuration-gated; never fails the run).
+    maybe_explain_after_training(result, model, splits, config, paths)
+    return result
 
 
 def _evaluate(

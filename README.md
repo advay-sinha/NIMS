@@ -111,6 +111,14 @@ The architecture is designed to support additional intrusion detection datasets 
 - CUDA selected automatically through the central hardware module with CPU fallback; pinned DataLoaders and non-blocking transfers on GPU
 - Reuses the existing trainer, metric suite, experiment tracking and manifests — deep models train through the same entry point and produce identical run artifacts
 
+### Explainability (SHAP)
+
+- Modular explainability package (`src/explainability/`): backend interface, registry, artefact persistence and orchestration, mirroring the model registry design
+- XGBoost backend using exact tree-SHAP (`shap.TreeExplainer`) with binary and multiclass support; values normalised to a single `(samples, features, outputs)` layout
+- Per-experiment artefacts under `outputs/explainability/<experiment_id>/`: `metadata.json` (run identity, sample count, SHAP version), `feature_importance.csv` (feature, mean |SHAP|, rank), `shap_values.pkl` (full arrays) and `global_summary.png`
+- Extended global importance (`global_feature_importance.csv`: mean/std |SHAP|, percentage and cumulative contribution per feature) and deterministic per-sample explanations (`local/sample_NNNN.csv`: feature value, signed and absolute SHAP contribution, rank); multiclass outputs are aggregated across classes, binary models keep exact signed values
+- Configuration-driven (`configs/explainability.yaml`): enable/disable, explained split and a seeded sample cap without touching training code; supported models are explained automatically after training, and `scripts/run_explainability.py` explains any completed run post-hoc
+
 ### Software Quality
 
 - Unit testing
@@ -130,14 +138,9 @@ trained manually on local hardware.
 
 Remaining in this phase:
 
-- Run the deep-learning baselines (MLP, CNN, LSTM, Transformer) on
-  NSL-KDD, UNSW-NB15 and CICIDS2017 and add them to the benchmark report
-- Apply the recommended LightGBM parameter changes from
-  `outputs/reports/model_validation_report.md` and re-train on NSL-KDD /
-  CICIDS2017 to confirm the divergence diagnosis
-- Train XGBoost on UNSW-NB15 (missing from the current benchmark)
+- Extend explainability to LightGBM and the deep models
+- Per-class error analysis on UNSW-NB15 from the stored confusion matrices
 - Hyperparameter tuning
-- Explainability (SHAP / feature importance)
 
 ---
 

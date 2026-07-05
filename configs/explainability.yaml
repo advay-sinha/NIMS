@@ -1,0 +1,40 @@
+# =============================================================================
+# NetSentinel — Explainability Configuration
+# =============================================================================
+#
+# Controls post-training model explanation (SHAP). Fully configuration-driven:
+# explainability can be enabled/disabled here without touching training code.
+#
+# =============================================================================
+
+explainability:
+  # Master switch. When false, training runs complete exactly as before and
+  # no explainability artefacts are generated.
+  enabled: true
+
+  # Which split to explain. The test split measures the deployed decision
+  # surface on unseen data.
+  split: test
+
+  # Upper bound on explained rows. Rows are sampled deterministically with
+  # the reproducibility seed, keeping SHAP cost bounded on large test sets
+  # (CICIDS2017's test split alone has ~360k rows).
+  max_samples: 2000
+
+  # Global summary plot settings.
+  plot:
+    max_display: 20
+    dpi: 150
+
+  # Extended global importance table (global_feature_importance.csv):
+  # mean/std |SHAP|, percentage and cumulative contribution per feature.
+  global_importance:
+    enabled: true
+
+  # Per-sample explanations (local/sample_NNNN.csv). Samples are selected
+  # deterministically with the reproducibility seed. Multi-output (multiclass)
+  # SHAP values are aggregated across class outputs (mean |SHAP|); binary
+  # models keep the exact signed value.
+  local_explanations:
+    enabled: true
+    max_samples: 5

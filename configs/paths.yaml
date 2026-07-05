@@ -41,6 +41,10 @@ paths:
   # outputs/experiments/<dataset>/<model>/<run_id>/.
   experiments_dir: outputs/experiments
 
+  # Phase 5 explainability artefacts, namespaced per experiment as
+  # outputs/explainability/<experiment_id>/.
+  explainability_dir: outputs/explainability
+
   # Raw dataset roots. Names contain spaces / vendor quirks on disk, so they
   # are spelled out explicitly here rather than derived from the dataset id.
   raw:

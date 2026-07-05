@@ -71,6 +71,8 @@ class Paths:
     features_out_dir: Path
     # Phase 4 training experiment outputs (models, metrics, manifests).
     experiments_dir: Path
+    # Explainability artefacts (SHAP values, importance tables, plots).
+    explainability_dir: Path
     # Mapping of dataset id -> read-only raw directory.
     raw: Mapping[str, Path]
 
@@ -126,6 +128,7 @@ class Paths:
             artifacts_dir=resolve("artifacts_dir"),
             features_out_dir=resolve("features_out_dir"),
             experiments_dir=resolve("experiments_dir"),
+            explainability_dir=resolve("explainability_dir"),
             raw=raw,
         )
 

@@ -26,3 +26,4 @@ defaults:
   - features.yaml
   - training.yaml
   - deep_learning.yaml
+  - explainability.yaml

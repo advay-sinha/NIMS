@@ -38,6 +38,7 @@ def test_raw_dir_unknown_dataset_raises_key_error() -> None:
         artifacts_dir=Path("outputs/artifacts"),
         features_out_dir=Path("outputs/features"),
         experiments_dir=Path("outputs/experiments"),
+        explainability_dir=Path("outputs/explainability"),
         raw={"nsl_kdd": Path("datasets/NSL-KDD")},
     )
     assert p.raw_dir("nsl_kdd") == Path("datasets/NSL-KDD")
