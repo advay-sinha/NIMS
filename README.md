@@ -99,9 +99,10 @@ The architecture is designed to support additional intrusion detection datasets 
 
 ### Model Validation & Diagnostics
 
-- Training runs completed on NSL-KDD, UNSW-NB15 and CICIDS2017 (XGBoost test F1 ≈ 0.992–0.999; LightGBM multiclass runs underperform, see below)
-- Aggregated benchmark report generator (`scripts/generate_validation_report.py`) producing `outputs/reports/model_validation_report.md` from the run manifests: per-model summaries, cross-model comparison tables, timings, model sizes and train/validation/test metrics
-- Root-cause diagnosis of the LightGBM multiclass gap, evidenced from the saved boosters: unregularized leaf outputs under 40-class softmax (`reg_lambda=0`, near-zero hessian sums) make validation loss diverge and boosting collapse after ~30 of 400 iterations, aggravated by the GPU-oriented `max_bin: 63` remaining active on CPU runs; recommended parameter changes are documented in the validation report (pending manual re-training)
+- Full benchmark completed: 7 models × 3 datasets, all trained manually on local hardware. XGBoost leads every dataset (test F1 0.9925 on NSL-KDD, 0.9244 on UNSW-NB15, 0.9988 on CICIDS2017); LightGBM is statistically adjacent; the deep models are consistent baselines 0.7–1.4 pp behind at 1–2 orders of magnitude more training time
+- Aggregated benchmark report generator (`scripts/generate_validation_report.py`) producing `outputs/reports/model_validation_report.md` from the run manifests: executive summary, best-model and ranking tables, an overall cross-dataset model ranking, classical-vs-deep comparison, efficiency analysis, derived key findings, reproducibility notes and per-model detail tables
+- LightGBM multiclass divergence root-caused from the saved boosters (unregularized leaf outputs under 40-class softmax) and fixed via `reg_lambda: 1.0` — NSL-KDD F1 0.775 → 0.9923, CICIDS2017 0.742 → 0.9987; the LightGBM OpenCL GPU limitation on CICIDS2017 (single-precision histograms) is documented in `configs/training.yaml` with a validated `gpu_use_dp` workaround
+- XGBoost binary-target objective reconciliation: an explicitly configured multiclass objective on a two-class dataset (UNSW-NB15) is switched to the equivalent binary objective automatically, with regression tests across all dataset cardinalities
 
 ### Engine B — Deep Learning Framework (Layer 3)
 
@@ -167,66 +168,42 @@ The architecture is designed to support additional intrusion detection datasets 
 
 ## 🚧 Current Phase
 
-The Engine A training pipeline has been audited and stabilized: metric
-correctness (ROC-AUC on splits with missing classes), parameter provenance in
-manifests, and a mandatory pre-fit feature audit are in place, and the
-cross-model benchmark report is generated from the run manifests. Models are
-trained manually on local hardware.
+The full intrusion-detection stack is operational end-to-end: benchmarked
+models on all three datasets, explainability, error analysis, visualization,
+hyperparameter optimization, a model registry with promoted production models
+per dataset, and a batch inference API serving them. Models are trained
+manually on local hardware.
 
-Remaining in this phase:
+Next up:
 
-- Extend explainability to LightGBM and the deep models
-- Per-class error analysis on UNSW-NB15 from the stored confusion matrices
-- Hyperparameter tuning
+- Extend explainability backends to LightGBM and the deep models
+- Engine B network-health prediction over SNMP telemetry (Isolation Forest /
+  LSTM autoencoder)
+- Correlation engine combining cyber and network-health signals
+- Monitoring dashboard
 
 ---
 
 # Planned Features
 
-## Machine Learning
+## Models
 
-- Logistic Regression
-- Decision Tree
-- Random Forest
-- XGBoost
-- LightGBM
-- CatBoost
-
-## Deep Learning
-
-- Multi-Layer Perceptron (MLP) — framework implemented
-- LSTM — framework implemented
-- CNN (1D) — framework implemented
-- Transformer encoder — framework implemented
-- Autoencoder-based anomaly detection — planned
+- Logistic Regression, Decision Tree, Random Forest, CatBoost (classical additions)
+- Autoencoder-based anomaly detection
+- Engine B network-health models (SNMP/MIB telemetry)
 
 ## Evaluation
 
-- Accuracy
-- Precision
-- Recall
-- F1-score
-- ROC-AUC
 - PR-AUC
-- Confusion Matrix
 - Cross-validation
 - Statistical model comparison
 
-## Explainability
-
-- SHAP
-- Feature importance
-- Error analysis
-- Prediction visualization
-
 ## Deployment
 
-- FastAPI inference service
-- REST API
 - Docker support
 - Real-time monitoring
-- Model serving
-- Logging and monitoring
+- Streaming/near-real-time inference
+- Monitoring dashboard
 
 ---
 
@@ -235,18 +212,23 @@ Remaining in this phase:
 ```text
 NIMS/
 │
-├── configs/
-├── datasets/
+├── configs/            # YAML configuration (one file per subsystem)
+├── datasets/           # raw vendor datasets (read-only) + samples/
 ├── notebooks/
-├── outputs/
-├── scripts/
+├── outputs/            # all generated artifacts (experiments, reports, registry, ...)
+├── scripts/            # CLI entry points
 ├── src/
-│   ├── data/
-│   ├── features/
-│   ├── models/
-│   ├── training/
-│   ├── evaluation/
-│   └── utils/
+│   ├── data/           # loaders, validation, cleaning, encoding, scaling, splitting
+│   ├── features/       # variance/correlation/statistical selection, PCA
+│   ├── models/         # model wrappers + registry (classical & deep_learning/)
+│   ├── training/       # trainer, metrics, experiment tracking, feature audit, reporting
+│   ├── explainability/ # SHAP backends and artifacts
+│   ├── error_analysis/ # confusion/per-class metrics, misclassified examples
+│   ├── visualization/  # plots rendered from persisted artifacts
+│   ├── optimization/   # Optuna search spaces, objective, studies
+│   ├── registry/       # model registry, promotion, resolver
+│   ├── api/            # FastAPI batch inference service
+│   └── utils/          # config, paths, hardware, io, logging, seed
 ├── tests/
 ├── pyproject.toml
 └── README.md
@@ -339,6 +321,39 @@ Rebuild the searchable experiment index (new runs append automatically):
 python -m scripts.build_experiment_index
 ```
 
+Generate post-hoc analysis artifacts for a completed run (each also runs
+automatically after training where configured):
+
+```bash
+python -m scripts.run_explainability --dataset unsw_nb15 --model xgboost
+python -m scripts.run_error_analysis --dataset unsw_nb15 --model xgboost
+python -m scripts.run_visualizations --dataset unsw_nb15 --model xgboost
+```
+
+Tune hyperparameters (validation-split objective; optionally trains the best
+parameters as a normal experiment with optimization provenance):
+
+```bash
+python -m scripts.run_optimization --dataset unsw_nb15 --model xgboost --n-trials 20
+```
+
+Build the model registry, promote a production model and resolve it:
+
+```bash
+python -m scripts.build_model_registry
+python -m scripts.promote_model --dataset unsw_nb15 --model xgboost --reason "Best validated baseline"
+python -m scripts.resolve_model --dataset unsw_nb15 --json
+```
+
+Serve the promoted production models for batch inference:
+
+```bash
+python -m scripts.run_api          # or: uvicorn src.api.app:app
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/models
+curl -X POST http://127.0.0.1:8000/predict/unsw_nb15 -F "file=@datasets/samples/unsw_nb15_sample.csv"
+```
+
 Run the test suite:
 
 ```bash
@@ -364,28 +379,30 @@ NIMS is built around the following principles:
 # Roadmap
 
 - ✅ Project architecture
-- ✅ Dataset ingestion
-- ✅ Dataset validation
-- ✅ Dataset auditing
+- ✅ Dataset ingestion, validation and auditing
 - ✅ Data preprocessing
 - ✅ Feature engineering
 - ✅ Engine A baseline model framework (XGBoost, LightGBM, Isolation Forest)
-- ✅ Training-pipeline validation & benchmark reporting
 - ✅ Deep-learning model framework (MLP, CNN, LSTM, Transformer)
-- 🚧 Model evaluation & tuning
-- ⏳ Deep-learning training runs & comparison
-- ⏳ Hyperparameter optimization
-- ⏳ Model explainability
-- ⏳ Model deployment
+- ✅ Full cross-model benchmark on all three datasets
+- ✅ Model explainability (SHAP: global + per-sample)
+- ✅ Error analysis (per-class metrics, hardest classes, misclassified examples)
+- ✅ Visualization artifacts
+- ✅ Hyperparameter optimization (Optuna)
+- ✅ Model registry with production promotion
+- ✅ Batch inference API (FastAPI)
+- ⏳ Engine B network-health prediction (SNMP telemetry)
+- ⏳ Correlation engine (cyber + network health)
 - ⏳ Real-time monitoring dashboard
+- ⏳ Docker / deployment hardening
 
 ---
 
 # Current Status
 
-**Current Development Stage:** Deep-Learning Baselines & Model Evaluation
+**Current Development Stage:** Serving & Network-Health Expansion
 
-The data engineering, preprocessing, and feature-engineering layers are complete. The Engine A baseline framework (GPU-aware XGBoost, LightGBM, Isolation Forest) has been audited end-to-end — metric correctness, parameter provenance, and pre-fit feature validation — with benchmark results aggregated into a cross-model validation report. The deep-learning framework (MLP, 1D-CNN, LSTM, Transformer behind the same model interface, with mixed precision, early stopping, and configuration-driven training) is implemented and tested. Models are trained manually on local hardware; the next milestone is running and benchmarking the deep-learning baselines alongside the classical models.
+The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. The next milestone is Engine B: network-health prediction over SNMP telemetry, followed by the correlation engine and monitoring dashboard.
 
 ---
 
