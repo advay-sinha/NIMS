@@ -1,0 +1,45 @@
+# =============================================================================
+# NetSentinel — Hyperparameter Optimization Configuration
+# =============================================================================
+#
+# Optuna-backed tuning of existing models. Optimization NEVER runs during
+# normal training — it is invoked explicitly via scripts/run_optimization.py.
+# Trials are evaluated on the validation split; the test split stays
+# untouched for the final benchmark.
+#
+# =============================================================================
+
+optimization:
+  # Documents that optimization is opt-in; normal training ignores it.
+  enabled: false
+
+  # Optuna storage URL (null = in-memory study, artefacts persisted to disk).
+  study_storage: null
+
+  # Trials per study (kept small by default; raise per run via --n-trials).
+  n_trials: 20
+
+  # Wall-clock cap in seconds (null = no cap).
+  timeout: null
+
+  # Objective: metric and direction. Supported metrics: f1_weighted,
+  # f1_macro, accuracy, roc_auc.
+  direction: maximize
+  metric: f1_weighted
+
+  # Seeded sampler: tpe | random. Fixed seed => reproducible suggestions.
+  sampler: tpe
+  seed: 42
+
+  # Train one final model with the best parameters through the standard
+  # experiment pipeline (manifest records the optimization provenance).
+  train_final_best_model: true
+
+  # Per-model opt-in. Only models with a defined search space can be tuned.
+  models:
+    xgboost:
+      enabled: true
+    lightgbm:
+      enabled: true
+    mlp:
+      enabled: true

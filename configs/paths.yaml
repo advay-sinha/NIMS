@@ -45,6 +45,18 @@ paths:
   # outputs/explainability/<experiment_id>/.
   explainability_dir: outputs/explainability
 
+  # Error-analysis artefacts, namespaced per experiment as
+  # outputs/error_analysis/<experiment_id>/.
+  error_analysis_dir: outputs/error_analysis
+
+  # Visualization artefacts, namespaced per experiment as
+  # outputs/visualizations/<experiment_id>/.
+  visualizations_dir: outputs/visualizations
+
+  # Hyperparameter-optimization artefacts, namespaced per study as
+  # outputs/optimization/<study_id>/.
+  optimization_dir: outputs/optimization
+
   # Raw dataset roots. Names contain spaces / vendor quirks on disk, so they
   # are spelled out explicitly here rather than derived from the dataset id.
   raw:

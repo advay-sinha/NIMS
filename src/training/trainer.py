@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from src.error_analysis.analyzer import maybe_analyze_after_training
 from src.explainability.runner import maybe_explain_after_training
 from src.features.metadata import select_feature_columns, split_xy
 from src.models.registry import build_model
@@ -108,6 +109,7 @@ def train_model(
     model_name: str,
     config: Mapping[str, Any],
     paths: Any,
+    provenance: Mapping[str, Any] | None = None,
 ) -> TrainingResult:
     """Train and evaluate one model on one dataset; persist the experiment.
 
@@ -121,6 +123,9 @@ def train_model(
         Effective merged configuration.
     paths:
         Resolved :class:`src.utils.paths.Paths`.
+    provenance:
+        Optional origin record (e.g. hyperparameter optimization: study id,
+        best trial) stored verbatim in the manifest under ``provenance``.
 
     Returns
     -------
@@ -199,9 +204,11 @@ def train_model(
         metrics=metrics,
         timings=timings,
         seed=seed,
+        provenance=provenance,
     )
-    # Post-training explainability (configuration-gated; never fails the run).
+    # Post-training enrichment (configuration-gated; never fails the run).
     maybe_explain_after_training(result, model, splits, config, paths)
+    maybe_analyze_after_training(result, model, splits, config, paths)
     return result
 
 
@@ -263,6 +270,9 @@ def _persist_experiment(**kw: Any) -> TrainingResult:
         artefacts=artefacts,
         seed=kw["seed"],
     )
+    if kw.get("provenance"):
+        # Origin record (e.g. hyperparameter optimization study/trial).
+        manifest["provenance"] = dict(kw["provenance"])
     manifest_path = write_json(manifest, out_dir / "manifest.json")
     try:
         append_index_row(manifest, Path(paths.experiments_dir))

@@ -1,0 +1,25 @@
+# =============================================================================
+# NetSentinel — Error Analysis Configuration
+# =============================================================================
+#
+# Controls post-training error analysis (confusion structure, per-class
+# metrics, hardest classes, misclassified examples). Fully configuration-
+# driven: enable/disable without touching training code.
+#
+# =============================================================================
+
+error_analysis:
+  # Master switch. When false, training runs complete exactly as before and
+  # no error-analysis artefacts are generated.
+  enabled: true
+
+  # Which split to analyse.
+  split: test
+
+  # Cap on persisted misclassified examples. When probabilities exist, the
+  # highest-confidence errors are kept (the most damaging mistakes).
+  max_misclassified_examples: 1000
+
+  # Append the feature columns to misclassified_examples.csv. Off by default:
+  # row indices are enough to look rows up, and full feature dumps are large.
+  include_feature_values: false

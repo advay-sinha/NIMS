@@ -119,6 +119,27 @@ The architecture is designed to support additional intrusion detection datasets 
 - Extended global importance (`global_feature_importance.csv`: mean/std |SHAP|, percentage and cumulative contribution per feature) and deterministic per-sample explanations (`local/sample_NNNN.csv`: feature value, signed and absolute SHAP contribution, rank); multiclass outputs are aggregated across classes, binary models keep exact signed values
 - Configuration-driven (`configs/explainability.yaml`): enable/disable, explained split and a seeded sample cap without touching training code; supported models are explained automatically after training, and `scripts/run_explainability.py` explains any completed run post-hoc
 
+### Error Analysis
+
+- Modular error-analysis package (`src/error_analysis/`): pure metric builders, an analyzer, artefact persistence and a Markdown reporting helper
+- Per-experiment artefacts under `outputs/error_analysis/<experiment_id>/`: labelled confusion matrix, per-class metrics (support, precision, recall, F1, FP/FN counts), hardest classes ranked by lowest F1, and misclassified examples (highest-confidence errors first, capped); binary tasks additionally get false-positive/false-negative example files
+- Configuration-driven (`configs/error_analysis.yaml`): enable/disable, analysed split, example cap and optional feature-value inclusion; runs automatically after training and post-hoc via `scripts/run_error_analysis.py`
+
+### Visualization
+
+- Modular visualization package (`src/visualization/`) rendering production plots from persisted artefacts only — predictions, SHAP values and training are never recomputed
+- Per-experiment plots under `outputs/visualizations/<experiment_id>/`: confusion matrix (counts + row-normalized, annotations auto-disabled beyond 25 classes), top-20 SHAP feature importances, hardest classes with support annotations, and most common true→predicted misclassification pairs, plus a `metadata.json` recording generated/skipped plots and source artefacts
+- Configuration-driven (`configs/visualization.yaml`): top-N limits, DPI and format; missing upstream artefacts or zero misclassifications skip the affected plot with a recorded reason instead of failing; post-hoc via `scripts/run_visualizations.py`
+- Confusion-matrix axes show decoded class names (from the preprocessing encoding report) instead of numeric ids; multiclass runs use the row-normalized view as the primary plot (raw counts hide minority-class errors) with counts kept as a companion
+
+### Hyperparameter Optimization
+
+- Optuna-backed optimization package (`src/optimization/`): per-model search spaces, a validation-split objective built on the existing model registry, seeded TPE/random samplers for reproducible studies
+- Supported models: XGBoost, LightGBM, MLP — conservative search spaces (depth/learning-rate/estimators/regularisation for the boosted trees; width/depth/dropout/optimiser settings for the MLP); trials never touch the test split
+- Per-study artefacts under `outputs/optimization/<study_id>/`: `metadata.json`, `trials.csv` (state, value, duration, expanded params), `best_params.json`, `best_trial.json` and `optimization_summary.md`; failed trials are recorded and the study continues
+- Optional final training of the best parameters through the standard experiment pipeline — the manifest records the optimization provenance (study id, best trial, validation value)
+- Invoked explicitly via `scripts/run_optimization.py` (never during normal training); config defaults in `configs/optimization.yaml`
+
 ### Software Quality
 
 - Unit testing

@@ -73,6 +73,12 @@ class Paths:
     experiments_dir: Path
     # Explainability artefacts (SHAP values, importance tables, plots).
     explainability_dir: Path
+    # Error-analysis artefacts (confusion, class metrics, misclassifications).
+    error_analysis_dir: Path
+    # Visualization artefacts (plots rendered from persisted artefacts).
+    visualizations_dir: Path
+    # Hyperparameter-optimization artefacts (studies, trials, best params).
+    optimization_dir: Path
     # Mapping of dataset id -> read-only raw directory.
     raw: Mapping[str, Path]
 
@@ -129,6 +135,9 @@ class Paths:
             features_out_dir=resolve("features_out_dir"),
             experiments_dir=resolve("experiments_dir"),
             explainability_dir=resolve("explainability_dir"),
+            error_analysis_dir=resolve("error_analysis_dir"),
+            visualizations_dir=resolve("visualizations_dir"),
+            optimization_dir=resolve("optimization_dir"),
             raw=raw,
         )
 

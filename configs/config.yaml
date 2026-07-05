@@ -27,3 +27,6 @@ defaults:
   - training.yaml
   - deep_learning.yaml
   - explainability.yaml
+  - error_analysis.yaml
+  - visualization.yaml
+  - optimization.yaml

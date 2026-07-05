@@ -1,0 +1,25 @@
+# =============================================================================
+# NetSentinel — Visualization Configuration
+# =============================================================================
+#
+# Controls plot generation from persisted experiment, explainability and
+# error-analysis artefacts. Nothing upstream is recomputed.
+#
+# =============================================================================
+
+visualization:
+  # Master switch for the post-hoc visualization runner.
+  enabled: true
+
+  # Bars shown in feature_importance_top20.png.
+  top_n_features: 20
+
+  # Classes shown in hardest_classes_top10.png.
+  top_n_hardest_classes: 10
+
+  # Pairs shown in misclassification_pairs_top20.png.
+  top_n_misclassification_pairs: 20
+
+  # Output resolution and format for every plot.
+  dpi: 150
+  image_format: png
