@@ -57,6 +57,10 @@ paths:
   # outputs/optimization/<study_id>/.
   optimization_dir: outputs/optimization
 
+  # Model registry (registered experiments, best picks, production
+  # assignments).
+  registry_dir: outputs/registry
+
   # Raw dataset roots. Names contain spaces / vendor quirks on disk, so they
   # are spelled out explicitly here rather than derived from the dataset id.
   raw:

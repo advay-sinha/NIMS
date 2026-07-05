@@ -79,6 +79,8 @@ class Paths:
     visualizations_dir: Path
     # Hyperparameter-optimization artefacts (studies, trials, best params).
     optimization_dir: Path
+    # Model registry (registered experiments, best picks, production).
+    registry_dir: Path
     # Mapping of dataset id -> read-only raw directory.
     raw: Mapping[str, Path]
 
@@ -138,6 +140,7 @@ class Paths:
             error_analysis_dir=resolve("error_analysis_dir"),
             visualizations_dir=resolve("visualizations_dir"),
             optimization_dir=resolve("optimization_dir"),
+            registry_dir=resolve("registry_dir"),
             raw=raw,
         )
 

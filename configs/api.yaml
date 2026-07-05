@@ -1,0 +1,26 @@
+# =============================================================================
+# NetSentinel — Inference API Configuration
+# =============================================================================
+#
+# Batch inference service over the registry-promoted production models.
+# Models, transforms and feature lists come from the model registry and the
+# saved pipeline artefacts — nothing is fitted or trained by the API.
+#
+# =============================================================================
+
+api:
+  # Bind address for scripts/run_api.py.
+  host: 127.0.0.1
+  port: 8000
+
+  # Registry stage served by the prediction endpoints.
+  stage: production
+
+  # Request row cap (larger uploads are rejected with HTTP 413).
+  max_rows_per_request: 10000
+
+  # Include class probabilities in prediction responses when supported.
+  return_probabilities: true
+
+  # Cache loaded model bundles in memory per (dataset, stage).
+  model_cache_enabled: true

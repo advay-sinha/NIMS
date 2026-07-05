@@ -30,3 +30,5 @@ defaults:
   - error_analysis.yaml
   - visualization.yaml
   - optimization.yaml
+  - registry.yaml
+  - api.yaml

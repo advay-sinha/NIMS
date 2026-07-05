@@ -140,6 +140,22 @@ The architecture is designed to support additional intrusion detection datasets 
 - Optional final training of the best parameters through the standard experiment pipeline — the manifest records the optimization provenance (study id, best trial, validation value)
 - Invoked explicitly via `scripts/run_optimization.py` (never during normal training); config defaults in `configs/optimization.yaml`
 
+### Model Registry
+
+- File-based model registry (`src/registry/`) built entirely from experiment manifests — no database, no model copies, no recomputed metrics
+- `outputs/registry/`: `registry.json` (every registered run with scalar metrics, artefact references and lifecycle status), `best_per_dataset.json` (automatic best candidate by the configured metric) and `production.json` (explicit promotions with reasons)
+- Rebuilds are idempotent (`scripts/build_model_registry.py` preserves registration timestamps, tags and statuses; `production.json` stays authoritative); promotion via `scripts/promote_model.py` picks the best registered candidate when no experiment id is pinned
+- `resolve_model(dataset, stage)` returns the serving model's paths, metrics and preprocessing/feature artefact references — the lookup surface for the upcoming inference service
+- Policy in `configs/registry.yaml`: selection metric/direction, whether optimized runs are eligible, whether test metrics are required
+
+### Inference API
+
+- FastAPI service (`src/api/`) serving the registry-promoted production models for batch inference; start with `python -m scripts.run_api` or `uvicorn src.api.app:app`
+- Endpoints: `GET /health`, `GET /models` (production assignments with metrics), `POST /predict/{dataset}` (CSV upload) and `POST /predict-json/{dataset}` (JSON rows)
+- Inference replays the training pipeline's saved transforms — the fitted feature encoder and scaler from preprocessing, then alignment to the canonical feature-engineering column list — before predicting; nothing is fitted at inference time, and predictions are decoded back to original label names via the saved label encoder
+- Model bundles are resolved through the registry (no hardcoded paths) and cached in memory per (dataset, stage); requests with missing columns, invalid CSV, oversized batches or unknown datasets get clean HTTP errors without stack traces
+- Configuration in `configs/api.yaml`: host/port, served stage, row cap, probability output, cache toggle
+
 ### Software Quality
 
 - Unit testing

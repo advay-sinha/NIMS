@@ -1,0 +1,18 @@
+# =============================================================================
+# NetSentinel — Model Registry Configuration
+# =============================================================================
+#
+# File-based registry of completed experiments: candidate tracking, automatic
+# best-per-dataset selection and explicit production promotion. Built from
+# the experiment manifests; nothing is retrained, recomputed or copied.
+#
+# =============================================================================
+
+registry:
+  # Metric deciding the best candidate per dataset (<split>_<metric>).
+  selection_metric: test_f1
+  higher_is_better: true
+
+  # Registration policy.
+  allow_optimized_models: true    # include runs produced by optimization
+  require_test_metrics: true      # runs without test metrics are skipped

@@ -42,5 +42,11 @@ shap
 # Hyperparameter Optimization
 optuna
 
+# Inference API
+fastapi
+uvicorn[standard]
+python-multipart
+httpx
+
 # Experiment Tracking
 tensorboard
