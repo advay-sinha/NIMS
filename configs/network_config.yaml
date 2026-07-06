@@ -52,6 +52,13 @@ network_config:
     enabled: true
     config_path: configs/network_rules.yaml
 
+  # Phase 4 remediation plan generation. Runs after rules unless disabled or
+  # --skip-remediation. DRY-RUN ONLY: plans are generated, never executed.
+  # Templates live in a standalone file (override with --remediation-config).
+  remediation:
+    enabled: true
+    config_path: configs/remediation.yaml
+
   # Safety posture (documented invariant for this phase). Live access and
   # remediation are disabled by design and have no code path in Phase 1/2.
   safety:

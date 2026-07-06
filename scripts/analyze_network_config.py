@@ -53,6 +53,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--rules-config", default=None,
         help="Rules YAML (defaults to network_config.rules.config_path).",
     )
+    parser.add_argument(
+        "--skip-remediation", action="store_true",
+        help="Skip Phase 4 remediation plan generation.",
+    )
+    parser.add_argument(
+        "--remediation-config", default=None,
+        help="Remediation YAML (defaults to "
+             "network_config.remediation.config_path).",
+    )
     return parser
 
 
@@ -95,9 +104,31 @@ def main(argv: list[str] | None = None) -> int:
             inventory, topology
         )
 
+    remediation_plan = None
+    remediation_summary = None
+    rem_cfg = dict(cfg.get("remediation") or {})
+    if (findings is not None and rem_cfg.get("enabled", True)
+            and not args.skip_remediation):
+        from src.network_config.remediation import (
+            RemediationGenerator,
+            load_remediation_config,
+        )
+
+        rem_path = (args.remediation_config or rem_cfg.get("config_path")
+                    or "configs/remediation.yaml")
+        try:
+            rem_config = load_remediation_config(rem_path)
+        except FileNotFoundError as exc:
+            logger.error("%s", exc)
+            return 1
+        if rem_config.get("global", {}).get("enabled", True):
+            remediation_plan, remediation_summary = RemediationGenerator(
+                rem_config
+            ).generate(findings, snapshot_id)
+
     paths = write_inventory(
         inventory, Path(ctx.paths.network_config_dir), topology,
-        findings, rule_summary,
+        findings, rule_summary, remediation_plan, remediation_summary,
     )
     logger.info(
         "Analyzed %d device(s), %d interface(s); snapshot at %s.",
@@ -115,6 +146,15 @@ def main(argv: list[str] | None = None) -> int:
             rule_summary["total_findings"],
             len(rule_summary["rules_evaluated"]),
             rule_summary["suppressed_count"],
+        )
+    if remediation_summary is not None:
+        logger.info(
+            "Remediation (dry-run, no commands executed): %d action(s) "
+            "(%d command, %d investigation, %d blocked).",
+            remediation_summary["total_actions"],
+            remediation_summary["command_actions"],
+            remediation_summary["investigation_actions"],
+            remediation_summary["blocked_actions"],
         )
     if inventory.files_missing:
         logger.info("Missing input files: %s",

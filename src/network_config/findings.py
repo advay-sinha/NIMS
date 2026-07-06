@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 # Severity ordering (most severe first) for deterministic sorting / reporting.
 SEVERITY_ORDER: dict[str, int] = {
@@ -40,6 +40,9 @@ class Finding:
     confidence: str = "medium"                 # high/medium/low
     source: str = "inventory"                  # inventory/topology
     tags: tuple[str, ...] = field(default_factory=tuple)
+    # Structured, machine-readable specifics a rule wants downstream consumers
+    # (e.g. the remediation generator) to use instead of parsing ``evidence``.
+    details: dict[str, Any] = field(default_factory=dict)
 
     @property
     def severity_rank(self) -> int:

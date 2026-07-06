@@ -20,12 +20,12 @@ def network_config_report(
     summary: dict[str, Any],
     topology_summary: dict[str, Any] | None = None,
     findings_summary: dict[str, Any] | None = None,
+    remediation_summary: dict[str, Any] | None = None,
 ) -> str:
     """Build the ``network_config_report.md`` text.
 
-    When ``topology_summary`` is provided (Phase 2), a topology section is
-    appended; when ``findings_summary`` is provided (Phase 3), a rule-findings
-    section follows it.
+    Optional sections are appended in phase order: topology (Phase 2),
+    rule findings (Phase 3) and remediation (Phase 4).
     """
     lines: list[str] = [
         f"# Network Configuration Report — {inventory.snapshot_id}",
@@ -78,6 +78,8 @@ def network_config_report(
         lines += _topology_section(topology_summary)
     if findings_summary is not None:
         lines += _findings_section(findings_summary)
+    if remediation_summary is not None:
+        lines += _remediation_section(remediation_summary)
     if inventory.files_missing:
         lines += ["", "## Missing input files", ""]
         lines += [f"- {name}" for name in inventory.files_missing]
@@ -151,6 +153,38 @@ def _findings_section(findings: dict[str, Any]) -> list[str]:
     if findings.get("rules_skipped"):
         lines += ["", "_Skipped rules (missing inputs): "
                   + ", ".join(findings["rules_skipped"]) + "_"]
+    return lines
+
+
+def _remediation_section(rem: dict[str, Any]) -> list[str]:
+    """Render the Phase 4 remediation summary section (dry-run only)."""
+    lines = [
+        "",
+        "## Remediation (dry-run)",
+        "",
+        "> **No commands were executed.** Plans are dry-run only and require "
+        "explicit human confirmation before any change.",
+        "",
+        "| Metric | Count |",
+        "|---|---|",
+        f"| Total actions | {rem['total_actions']} |",
+        f"| Command-bearing actions | {rem['command_actions']} |",
+        f"| Investigation-only actions | {rem['investigation_actions']} |",
+        f"| Blocked actions | {rem['blocked_actions']} |",
+    ]
+    if rem.get("actions_by_risk"):
+        lines += ["", "### Actions by risk", ""]
+        lines += _count_table(rem["actions_by_risk"], "Risk")
+    top = rem.get("top_actions") or []
+    if top:
+        lines += ["", "### Top planned actions", ""]
+        lines += [
+            f"- **{a['risk_level']}** [{a['rule_id']}] {a['title']} — "
+            f"{a.get('device') or 'n/a'}"
+            + (f" {a['interface']}" if a.get("interface") else "")
+            + f" ({a['action_type']})"
+            for a in top
+        ]
     return lines
 
 

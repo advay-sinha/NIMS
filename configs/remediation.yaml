@@ -1,0 +1,61 @@
+# =============================================================================
+# NetSentinel — Engine C Remediation Templates (Phase 4)
+# =============================================================================
+#
+# Config-driven, DRY-RUN-ONLY remediation plan generation from Phase 3
+# findings. This phase generates plans; it NEVER connects to a device and
+# NEVER executes a command. Every command-bearing action is dry-run only,
+# requires explicit human confirmation, and carries a rollback and a
+# verification step. Findings without a safe template become investigation-only
+# or blocked actions.
+#
+# =============================================================================
+
+global:
+  enabled: true
+  # Hard safety invariants for this phase (surfaced in every artefact).
+  dry_run_only: true
+  require_confirmation: true
+  require_rollback: true
+  require_verification: true
+
+templates:
+  # -- VLAN (command-bearing) ------------------------------------------------
+  TRUNK_MISSING_REQUIRED_VLAN:
+    enabled: true
+    risk_level: medium
+
+  TRUNK_UNAUTHORIZED_VLAN:
+    enabled: true
+    risk_level: high
+
+  # -- Port state (command-bearing) ------------------------------------------
+  UNUSED_PORT_ADMIN_UP:
+    enabled: true
+    risk_level: medium
+
+  # -- PoE (command-bearing) -------------------------------------------------
+  POE_DISABLED_EXPECTED:
+    enabled: true
+    risk_level: medium
+
+  # -- Investigation-only (never config-changing) ---------------------------
+  STP_BLOCKING_ACCESS_PORT:
+    enabled: true
+    mode: investigation_only
+
+  MAC_ON_MULTIPLE_INTERFACES:
+    enabled: true
+    mode: investigation_only
+
+  TRUNK_WITHOUT_NEIGHBOR:
+    enabled: true
+    mode: investigation_only
+
+  ACCESS_PORT_TOO_MANY_MACS:
+    enabled: true
+    mode: investigation_only
+
+  ACCESS_PORT_DISALLOWED_VLAN:
+    enabled: true
+    mode: investigation_only

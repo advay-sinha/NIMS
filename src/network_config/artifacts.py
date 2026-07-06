@@ -53,14 +53,16 @@ def write_inventory(
     topology: Any | None = None,
     findings: Any | None = None,
     rule_summary: dict[str, Any] | None = None,
+    remediation_plan: Any | None = None,
+    remediation_summary: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     """Persist a full inventory snapshot; return the written paths by key.
 
-    When a Phase 2 ``topology`` is supplied it is written alongside the
-    inventory (``topology.json`` + CSVs). When Phase 3 ``findings`` and their
-    ``rule_summary`` are supplied they are written too (``findings.json`` /
-    ``.csv`` / ``rule_summary.json``). Everything present is summarised in the
-    report and metadata.
+    Optional phase outputs are written alongside the inventory when supplied:
+    Phase 2 ``topology`` (``topology.*``), Phase 3 ``findings`` +
+    ``rule_summary`` (``findings.*`` / ``rule_summary.json``) and Phase 4
+    ``remediation_plan`` + ``remediation_summary`` (``remediation_*``).
+    Everything present is summarised in the report and metadata.
     """
     from src.utils.io import write_json
     from src.utils.paths import ensure_dir
@@ -100,6 +102,15 @@ def write_inventory(
         paths.update(write_findings(findings, rule_summary, out_dir))
         findings_report = {**rule_summary, "top_findings": _top_findings(findings)}
 
+    remediation_report = None
+    if remediation_plan is not None and remediation_summary is not None:
+        from src.network_config.remediation_artifacts import write_remediation
+
+        paths.update(write_remediation(remediation_plan, remediation_summary,
+                                       out_dir))
+        remediation_report = {**remediation_summary,
+                              "top_actions": _top_actions(remediation_plan)}
+
     metadata = _metadata(inventory, summary)
     if topo_summary is not None:
         metadata["topology"] = {
@@ -113,10 +124,17 @@ def write_inventory(
             "suppressed_count": rule_summary["suppressed_count"],
             "rules_evaluated": len(rule_summary["rules_evaluated"]),
         }
+    if remediation_summary is not None:
+        metadata["remediation"] = {
+            "total_actions": remediation_summary["total_actions"],
+            "command_actions": remediation_summary["command_actions"],
+            "blocked_actions": remediation_summary["blocked_actions"],
+            "dry_run_only": remediation_summary["dry_run_only"],
+        }
     paths["metadata"] = write_json(metadata, out_dir / "metadata.json")
 
     report = network_config_report(inventory, summary, topo_summary,
-                                   findings_report)
+                                   findings_report, remediation_report)
     report_path = out_dir / "network_config_report.md"
     report_path.write_text(report, encoding="utf-8")
     paths["report"] = report_path
@@ -184,3 +202,13 @@ def _top_findings(findings: Any, limit: int = 5) -> list[dict[str, Any]]:
         if f.status == "open" and f.severity in {"critical", "high"}
     ]
     return top[:limit]
+
+
+def _top_actions(plan: Any, limit: int = 5) -> list[dict[str, Any]]:
+    """The top planned actions for the report (plan is already severity-sorted)."""
+    return [
+        {"rule_id": a.rule_id, "title": a.title, "risk_level": a.risk_level,
+         "action_type": a.action_type, "device": a.device,
+         "interface": a.interface}
+        for a in plan.actions if a.status == "planned"
+    ][:limit]

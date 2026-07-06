@@ -112,13 +112,15 @@ def _rule_trunk_missing_required_vlan(ctx: RuleContext) -> list[dict]:
         for trunk in snap.trunks:
             missing = required - _str_set(trunk.allowed_vlans)
             if missing:
+                ordered = sorted(missing, key=_vlan_key)
                 out.append({
                     "device": snap.device.device_id,
                     "interface": trunk.interface,
                     "evidence": (f"trunk is missing required VLAN(s): "
-                                 f"{sorted(missing, key=_vlan_key)}"),
+                                 f"{ordered}"),
                     "recommendation": ("Add the required VLAN(s) to the trunk "
                                        "allowed list."),
+                    "details": {"missing_vlans": ordered},
                 })
     return out
 
@@ -132,13 +134,15 @@ def _rule_trunk_unauthorized_vlan(ctx: RuleContext) -> list[dict]:
         for trunk in snap.trunks:
             extra = _str_set(trunk.allowed_vlans) - authorized
             if extra:
+                ordered = sorted(extra, key=_vlan_key)
                 out.append({
                     "device": snap.device.device_id,
                     "interface": trunk.interface,
                     "evidence": (f"trunk allows unauthorized VLAN(s): "
-                                 f"{sorted(extra, key=_vlan_key)}"),
+                                 f"{ordered}"),
                     "recommendation": ("Prune unauthorized VLANs from the trunk "
                                        "allowed list."),
+                    "details": {"unauthorized_vlans": ordered},
                 })
     return out
 
@@ -424,6 +428,7 @@ class RuleEngine:
                 evidence=draft.get("evidence"),
                 recommendation=draft.get("recommendation"),
                 confidence=confidence, source=spec.source, tags=tags,
+                details=dict(draft.get("details") or {}),
             )
             yield draft, finding
 

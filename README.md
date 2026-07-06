@@ -176,8 +176,9 @@ The architecture is designed to support additional intrusion detection datasets 
 - Topology construction (`topology.py`) from the parsed inventory: high-confidence LLDP/CDP edges (deduplicated across protocols; reversed duplicate links collapse to one bidirectional edge with interface/hostname normalization), plus **conservative** MAC-table and STP hints represented as low/medium-confidence signals and warnings — MAC-derived adjacency is never claimed as certain
 - Topology warnings: LLDP/CDP protocol mismatch, unidirectional neighbor, trunk with no discovered neighbor, access port exceeding a configurable MAC threshold, a MAC learned on multiple interfaces (loop risk), STP blocking on an access port and trunk ports missing STP data — each with severity, category and evidence, and deterministic ids
 - YAML-driven rule engine (`rules.py`, `findings.py`) that evaluates the inventory and topology against configurable rules (`configs/network_rules.yaml`) and emits structured, detection-only findings — VLAN (disallowed access VLAN, trunk missing/unauthorized VLAN, native VLAN mismatch), port-state (unused-but-enabled ports, access ports with too many MACs), PoE (disabled on a port whose description implies a powered device), STP/loop-risk (blocking on an access port, MAC on multiple interfaces) and topology (trunk without a discovered neighbor). Rules, severities, thresholds, expected VLANs/keywords and suppression (by rule id, device/interface or tag) all live in YAML; findings carry deterministic ids and "candidate/possible" wording for inferred issues, and topology-dependent rules skip gracefully when topology is unavailable
-- Per-snapshot artifacts under `outputs/network_config/<snapshot_id>/`: `inventory.json`, `metadata.json`, `network_config_report.md` (with topology and rule-findings summary sections), one CSV per object type (`interfaces`, `vlans`, `trunks`, `neighbors`, `mac_table`, `poe_status`, `stp_state`), the topology set (`topology.json`, `topology_nodes.csv`, `topology_edges.csv`, `topology_warnings.csv`) and the rule set (`findings.json`, `findings.csv`, `rule_summary.json`)
-- Entry point `python -m scripts.analyze_network_config`: inventory always runs, topology and rules run automatically (`--skip-topology` / `--skip-rules` to opt out, `--rules-config` for a custom rule file); verified on synthetic saved outputs (`datasets/samples/network_config/`)
+- **Dry-run** remediation plan generator (`remediation.py`, `safety.py`) that turns findings into a structured plan — **plans only, no command is ever executed**. Config-driven templates (`configs/remediation.yaml`) produce either command-bearing actions (e.g. `switchport trunk allowed vlan add/remove`, `shutdown`/`no shutdown`, `power inline auto/never`), each with a rollback, a verification step, safety checks and a risk level, or read-only investigation-only actions for loop/topology issues; findings with no safe template become blocked actions. Every command action is `dry_run_only` and `requires_confirmation`, and the generator refuses to emit a change lacking a rollback or verification
+- Per-snapshot artifacts under `outputs/network_config/<snapshot_id>/`: `inventory.json`, `metadata.json`, `network_config_report.md` (with topology, rule-findings and remediation summary sections), one CSV per object type (`interfaces`, `vlans`, `trunks`, `neighbors`, `mac_table`, `poe_status`, `stp_state`), the topology set (`topology.json`, `topology_nodes.csv`, `topology_edges.csv`, `topology_warnings.csv`), the rule set (`findings.json`, `findings.csv`, `rule_summary.json`) and the remediation set (`remediation_plan.json`, `remediation_plan.md`, `remediation_commands.csv`, `remediation_summary.json`)
+- Entry point `python -m scripts.analyze_network_config`: inventory always runs, topology, rules and remediation planning run automatically (`--skip-topology` / `--skip-rules` / `--skip-remediation` to opt out; `--rules-config` / `--remediation-config` for custom files); verified on synthetic saved outputs (`datasets/samples/network_config/`)
 
 ### Software Quality
 
@@ -202,8 +203,9 @@ analysis are underway alongside it. Next up:
 - Extend explainability backends to LightGBM and the deep models
 - Engine B network-health prediction over SNMP telemetry (LSTM autoencoder,
   live polling)
-- Engine C human-approved remediation planning on top of the rule findings
-  (still offline / read-only; no execution)
+- Engine C enhancements on top of the offline pipeline (richer templates,
+  correlation with Engine A/B); live device access and command execution remain
+  intentionally out of scope
 - Correlation engine combining cyber, network-health and configuration signals
 - Monitoring dashboard
 
@@ -408,14 +410,16 @@ python -m scripts.analyze_network_config \
 
 Outputs are written under `outputs/network_config/<snapshot_id>/`
 (`inventory.json`, `metadata.json`, `network_config_report.md`, one CSV per
-object type, the topology set `topology.json` / `topology_nodes.csv` /
-`topology_edges.csv` / `topology_warnings.csv`, and the rule set
-`findings.json` / `findings.csv` / `rule_summary.json`). Topology and rule
-evaluation run automatically; pass `--skip-topology` and/or `--skip-rules` to
-opt out, and `--rules-config` to point at a custom rule file. Input filenames
-and topology thresholds live in `configs/network_config.yaml`; rule definitions,
-severities, thresholds and suppression live in `configs/network_rules.yaml`.
-Missing inputs are reported and skipped.
+object type, the topology set `topology.*`, the rule set `findings.*` /
+`rule_summary.json`, and the dry-run remediation set `remediation_plan.json` /
+`remediation_plan.md` / `remediation_commands.csv` / `remediation_summary.json`).
+Topology, rule evaluation and remediation planning run automatically; pass
+`--skip-topology`, `--skip-rules` and/or `--skip-remediation` to opt out, and
+`--rules-config` / `--remediation-config` to point at custom files. Input
+filenames and topology thresholds live in `configs/network_config.yaml`; rule
+definitions in `configs/network_rules.yaml`; remediation templates in
+`configs/remediation.yaml`. Remediation is **dry-run only — no command is ever
+executed.** Missing inputs are reported and skipped.
 
 Run the test suite:
 
@@ -459,9 +463,10 @@ NIMS is built around the following principles:
   features, Isolation Forest baseline; LSTM autoencoder and live SNMP polling
   next)
 - 🚧 Engine C network configuration intelligence (offline, read-only:
-  command-output parsing, typed inventory, LLDP/CDP/MAC/STP topology and a
-  YAML-driven rule engine producing structured findings; remediation planning
-  next)
+  command-output parsing, typed inventory, LLDP/CDP/MAC/STP topology, a
+  YAML-driven rule engine producing structured findings and a dry-run
+  remediation plan generator; live device access and execution deliberately
+  out of scope)
 - ⏳ Correlation engine (cyber + network health + configuration)
 - ⏳ Real-time monitoring dashboard
 - ⏳ Docker / deployment hardening
@@ -472,7 +477,7 @@ NIMS is built around the following principles:
 
 **Current Development Stage:** Serving & Network-Health Expansion
 
-The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. Engine B (network-health prediction over SNMP telemetry) has a working foundation with dataset adapters, and Engine C has an offline, read-only network-configuration parser producing a structured inventory, a derived LLDP/CDP/MAC/STP topology and a YAML-driven rule engine that emits structured configuration findings. The next milestones extend both engines — network-health LSTM modeling and Engine C's configuration rule engine and remediation planning — ahead of the correlation engine and monitoring dashboard.
+The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. Engine B (network-health prediction over SNMP telemetry) has a working foundation with dataset adapters, and Engine C has an offline, read-only network-configuration pipeline: command-output parsing to a structured inventory, a derived LLDP/CDP/MAC/STP topology, a YAML-driven rule engine that emits structured configuration findings and a dry-run remediation plan generator (plans only — no command is executed). The next milestones extend both engines — network-health LSTM modeling and Engine C's configuration rule engine and remediation planning — ahead of the correlation engine and monitoring dashboard.
 
 ---
 
