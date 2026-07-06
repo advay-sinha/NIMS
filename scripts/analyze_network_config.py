@@ -41,6 +41,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Snapshot id (output namespace; defaults to "
              "network_config.snapshot_id).",
     )
+    parser.add_argument(
+        "--skip-topology", action="store_true",
+        help="Skip Phase 2 topology construction (inventory only).",
+    )
     return parser
 
 
@@ -59,12 +63,26 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("%s", exc)
         return 1
 
-    paths = write_inventory(inventory, Path(ctx.paths.network_config_dir))
+    topo_cfg = dict(cfg.get("topology") or {})
+    topology = None
+    if topo_cfg.get("enabled", True) and not args.skip_topology:
+        from src.network_config.topology import build_topology
+
+        topology = build_topology(inventory, topo_cfg)
+
+    paths = write_inventory(
+        inventory, Path(ctx.paths.network_config_dir), topology
+    )
     logger.info(
         "Analyzed %d device(s), %d interface(s); snapshot at %s.",
         len(inventory.devices), len(inventory.all_interfaces),
         paths["report"].parent,
     )
+    if topology is not None:
+        logger.info(
+            "Topology: %d node(s), %d edge(s), %d warning(s).",
+            len(topology.nodes), len(topology.edges), len(topology.warnings),
+        )
     if inventory.files_missing:
         logger.info("Missing input files: %s",
                     ", ".join(inventory.files_missing))

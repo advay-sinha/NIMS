@@ -167,14 +167,16 @@ The architecture is designed to support additional intrusion detection datasets 
 - Config-driven dataset adapters (`src/network_health/adapters.py`, `dataset_registry.py`): a single alias-based mapping engine converts raw/public telemetry — SNMP-MIB 2016 counter dumps, LCORE-D core-network exports or already-canonical CSVs — into the one canonical telemetry schema the pipeline consumes; column aliases, constant device/interface ids, label maps and unknown-column preservation are all configurable per dataset in `configs/network_health.yaml`, no vendor naming is hardcoded. Missing raw sources fail with a clear error (no fabricated data); a `--inspect` mode reports inferred timestamp/label/metric columns for unknown schemas, and adapter runs persist `adapter_report.{json,md}`
 - Scripts: `prepare_network_health_dataset` (raw → canonical CSV), `validate_network_health`, `run_network_health_preprocessing`, `train_network_health_model` (also writes `outputs/network_health/reports/network_health_report.md`) — all resolvable by registered dataset id (`--dataset`); verified end-to-end on synthetic telemetry (`datasets/samples/network_health_synthetic.csv`) with injected interface degradation — recall 1.0, ROC-AUC 0.97
 
-### Engine C — Network Configuration Intelligence (Offline Phase 1)
+### Engine C — Network Configuration Intelligence (Offline)
 
-- Modular, **offline and read-only** configuration subsystem (`src/network_config/`) that turns saved device command outputs into a structured inventory — no live device access, SNMP polling or remediation (those are later, gated phases with no code path in this phase)
+- Modular, **offline and read-only** configuration subsystem (`src/network_config/`) that turns saved device command outputs into a structured inventory and a derived topology — no live device access, SNMP polling or remediation (those are later, gated phases with no code path in this phase)
 - Typed models (`models.py`) for device, interface, VLAN, trunk, PoE, neighbor, MAC entry and STP state, aggregated into a per-device snapshot and a network inventory
 - Tolerant parsers (`parsers.py`) for `show interface status`, `show vlan brief`, `show interfaces trunk`, `show lldp/cdp neighbors`, `show mac address-table`, `show power inline`, `show spanning-tree` and running-config identity — header-position slicing preserves fields with internal spaces (e.g. `Gig 0/1`, powered-device names), missing columns and VLAN ranges are handled, and a missing input file is warned about and skipped
 - Inventory builder (`inventory.py`) merges parsed outputs, enriches interfaces with PoE state and derives access/trunk ports, MAC presence, unused/down ports and STP state counts; configuration-driven filenames (`configs/network_config.yaml`)
-- Per-snapshot artifacts under `outputs/network_config/<snapshot_id>/`: `inventory.json`, `metadata.json`, `network_config_report.md` and one CSV per object type (`interfaces`, `vlans`, `trunks`, `neighbors`, `mac_table`, `poe_status`, `stp_state`)
-- Entry point `python -m scripts.analyze_network_config`; verified on synthetic saved outputs (`datasets/samples/network_config/`)
+- Topology construction (`topology.py`) from the parsed inventory: high-confidence LLDP/CDP edges (deduplicated across protocols; reversed duplicate links collapse to one bidirectional edge with interface/hostname normalization), plus **conservative** MAC-table and STP hints represented as low/medium-confidence signals and warnings — MAC-derived adjacency is never claimed as certain
+- Topology warnings: LLDP/CDP protocol mismatch, unidirectional neighbor, trunk with no discovered neighbor, access port exceeding a configurable MAC threshold, a MAC learned on multiple interfaces (loop risk), STP blocking on an access port and trunk ports missing STP data — each with severity, category and evidence, and deterministic ids
+- Per-snapshot artifacts under `outputs/network_config/<snapshot_id>/`: `inventory.json`, `metadata.json`, `network_config_report.md` (with a topology summary section), one CSV per object type (`interfaces`, `vlans`, `trunks`, `neighbors`, `mac_table`, `poe_status`, `stp_state`) and the topology set (`topology.json`, `topology_nodes.csv`, `topology_edges.csv`, `topology_warnings.csv`)
+- Entry point `python -m scripts.analyze_network_config` (topology runs automatically; `--skip-topology` for inventory only); verified on synthetic saved outputs (`datasets/samples/network_config/`)
 
 ### Software Quality
 
@@ -404,9 +406,12 @@ python -m scripts.analyze_network_config \
 ```
 
 Outputs are written under `outputs/network_config/<snapshot_id>/`
-(`inventory.json`, `metadata.json`, `network_config_report.md` and one CSV per
-object type). Input filenames are configurable in `configs/network_config.yaml`;
-missing inputs are reported and skipped.
+(`inventory.json`, `metadata.json`, `network_config_report.md`, one CSV per
+object type, and the topology set `topology.json` / `topology_nodes.csv` /
+`topology_edges.csv` / `topology_warnings.csv`). Topology construction runs
+automatically; pass `--skip-topology` for inventory only. Input filenames and
+topology thresholds are configurable in `configs/network_config.yaml`; missing
+inputs are reported and skipped.
 
 Run the test suite:
 
@@ -449,9 +454,10 @@ NIMS is built around the following principles:
   dataset adapters, telemetry validation, chronological preprocessing, health
   features, Isolation Forest baseline; LSTM autoencoder and live SNMP polling
   next)
-- 🚧 Engine C network configuration intelligence (offline Phase 1 complete:
-  read-only command-output parsing, typed inventory, per-snapshot artifacts;
-  rule engine and remediation planning next)
+- 🚧 Engine C network configuration intelligence (offline, read-only:
+  command-output parsing, typed inventory and LLDP/CDP/MAC/STP topology with
+  conservative warnings; configuration rule engine and remediation planning
+  next)
 - ⏳ Correlation engine (cyber + network health + configuration)
 - ⏳ Real-time monitoring dashboard
 - ⏳ Docker / deployment hardening
@@ -462,7 +468,7 @@ NIMS is built around the following principles:
 
 **Current Development Stage:** Serving & Network-Health Expansion
 
-The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. Engine B (network-health prediction over SNMP telemetry) has a working foundation with dataset adapters, and Engine C has an offline, read-only network-configuration parser producing a structured inventory. The next milestones extend both engines — network-health LSTM modeling and Engine C's configuration rule engine and remediation planning — ahead of the correlation engine and monitoring dashboard.
+The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. Engine B (network-health prediction over SNMP telemetry) has a working foundation with dataset adapters, and Engine C has an offline, read-only network-configuration parser producing a structured inventory and a derived LLDP/CDP/MAC/STP topology with conservative warnings. The next milestones extend both engines — network-health LSTM modeling and Engine C's configuration rule engine and remediation planning — ahead of the correlation engine and monitoring dashboard.
 
 ---
 

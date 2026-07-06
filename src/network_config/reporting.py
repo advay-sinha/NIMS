@@ -16,9 +16,15 @@ from src.network_config.models import NetworkInventory
 
 
 def network_config_report(
-    inventory: NetworkInventory, summary: dict[str, Any]
+    inventory: NetworkInventory,
+    summary: dict[str, Any],
+    topology_summary: dict[str, Any] | None = None,
 ) -> str:
-    """Build the ``network_config_report.md`` text."""
+    """Build the ``network_config_report.md`` text.
+
+    When ``topology_summary`` is provided (Phase 2), a topology section is
+    appended after the configuration summary.
+    """
     lines: list[str] = [
         f"# Network Configuration Report — {inventory.snapshot_id}",
         "",
@@ -66,11 +72,45 @@ def network_config_report(
     if summary["unused_ports"]:
         lines += ["", "## Unused/down ports (no description)", "",
                    ", ".join(summary["unused_ports"])]
+    if topology_summary is not None:
+        lines += _topology_section(topology_summary)
     if inventory.files_missing:
         lines += ["", "## Missing input files", ""]
         lines += [f"- {name}" for name in inventory.files_missing]
     lines.append("")
     return "\n".join(lines)
+
+
+def _topology_section(topo: dict[str, Any]) -> list[str]:
+    """Render the Phase 2 topology summary section."""
+    confidence = topo["confidence_counts"]
+    lines = [
+        "",
+        "## Topology",
+        "",
+        "| Metric | Count |",
+        "|---|---|",
+        f"| Nodes | {topo['node_count']} |",
+        f"| Edges | {topo['edge_count']} |",
+        f"| Bidirectional edges | {topo['bidirectional_edge_count']} |",
+        f"| High-confidence edges | {confidence['high']} |",
+        f"| Medium-confidence edges | {confidence['medium']} |",
+        f"| Low-confidence edges | {confidence['low']} |",
+        f"| LLDP/CDP edges | {topo['lldp_cdp_edge_count']} |",
+        f"| Inferred edges | {topo['inferred_edge_count']} |",
+        f"| Warnings | {topo['warning_count']} |",
+    ]
+    if topo["warning_severity_counts"]:
+        lines += ["", "### Warnings by severity", ""]
+        lines += _count_table(topo["warning_severity_counts"], "Severity")
+    if topo["warning_category_counts"]:
+        lines += ["", "### Warnings by category", ""]
+        lines += _count_table(topo["warning_category_counts"], "Category")
+    if topo["top_warnings"]:
+        lines += ["", "### Top warnings", ""]
+        lines += [f"- **{w['severity']}/{w['category']}** ({w['warning_id']}): "
+                  f"{w['message']}" for w in topo["top_warnings"]]
+    return lines
 
 
 def _count_table(counts: dict[str, int], label: str) -> list[str]:

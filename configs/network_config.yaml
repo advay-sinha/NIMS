@@ -30,8 +30,24 @@ network_config:
     cdp_neighbors: show_cdp_neighbors.txt
     running_config: show_running_config.txt
 
+  # Phase 2 topology construction from parsed LLDP/CDP, MAC and STP data. Runs
+  # automatically after the inventory build unless disabled here or via
+  # --skip-topology. All inference is conservative (offline, read-only).
+  topology:
+    enabled: true
+    # Access ports with more distinct MACs than this raise a hint warning.
+    mac_access_port_threshold: 5
+    # Warn when a trunk port has no spanning-tree data.
+    require_stp_on_trunks: true
+    # Warn when a neighbour is seen via only one of LLDP/CDP.
+    warn_on_lldp_cdp_mismatch: true
+    confidence:
+      lldp_cdp: high
+      mac_table: low
+      stp_inferred: medium
+
   # Safety posture (documented invariant for this phase). Live access and
-  # remediation are disabled by design and have no code path in Phase 1.
+  # remediation are disabled by design and have no code path in Phase 1/2.
   safety:
     mode: read_only
     live_device_access: false

@@ -47,8 +47,15 @@ _CSV_SPECS: dict[str, tuple[str, Sequence[str]]] = {
 }
 
 
-def write_inventory(inventory: NetworkInventory, root: Path) -> dict[str, Path]:
-    """Persist a full inventory snapshot; return the written paths by key."""
+def write_inventory(
+    inventory: NetworkInventory, root: Path, topology: Any | None = None
+) -> dict[str, Path]:
+    """Persist a full inventory snapshot; return the written paths by key.
+
+    When a Phase 2 ``topology`` is supplied it is written alongside the
+    inventory (``topology.json`` + CSVs) and summarised in the report and
+    metadata.
+    """
     from src.utils.io import write_json
     from src.utils.paths import ensure_dir
 
@@ -72,10 +79,24 @@ def write_inventory(inventory: NetworkInventory, root: Path) -> dict[str, Path]:
     for key, (filename, fields) in _CSV_SPECS.items():
         paths[key] = _write_csv(out_dir / filename, rows_by_key[key], fields)
 
-    paths["metadata"] = write_json(
-        _metadata(inventory, summary), out_dir / "metadata.json"
-    )
-    report = network_config_report(inventory, summary)
+    topo_summary = None
+    if topology is not None:
+        from src.network_config.topology import topology_summary
+        from src.network_config.topology_artifacts import write_topology
+
+        topo_summary = topology_summary(topology)
+        paths.update(write_topology(topology, out_dir))
+
+    metadata = _metadata(inventory, summary)
+    if topo_summary is not None:
+        metadata["topology"] = {
+            "node_count": topo_summary["node_count"],
+            "edge_count": topo_summary["edge_count"],
+            "warning_count": topo_summary["warning_count"],
+        }
+    paths["metadata"] = write_json(metadata, out_dir / "metadata.json")
+
+    report = network_config_report(inventory, summary, topo_summary)
     report_path = out_dir / "network_config_report.md"
     report_path.write_text(report, encoding="utf-8")
     paths["report"] = report_path
