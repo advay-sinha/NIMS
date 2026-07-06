@@ -81,6 +81,8 @@ class Paths:
     optimization_dir: Path
     # Model registry (registered experiments, best picks, production).
     registry_dir: Path
+    # Engine B network-health artefacts.
+    network_health_dir: Path
     # Mapping of dataset id -> read-only raw directory.
     raw: Mapping[str, Path]
 
@@ -141,6 +143,7 @@ class Paths:
             visualizations_dir=resolve("visualizations_dir"),
             optimization_dir=resolve("optimization_dir"),
             registry_dir=resolve("registry_dir"),
+            network_health_dir=resolve("network_health_dir"),
             raw=raw,
         )
 

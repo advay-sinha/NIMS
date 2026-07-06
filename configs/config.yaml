@@ -32,3 +32,4 @@ defaults:
   - optimization.yaml
   - registry.yaml
   - api.yaml
+  - network_health.yaml

@@ -1,0 +1,152 @@
+# =============================================================================
+# NetSentinel — Engine B Network-Health Configuration
+# =============================================================================
+#
+# CSV-based SNMP/MIB telemetry pipeline: schema validation, preprocessing
+# (counter deltas/rates, chronological splits), health features and the
+# Isolation Forest baseline. Live SNMP polling is a later phase.
+#
+# =============================================================================
+
+network_health:
+  # Dataset identity and source (single CSV file or a directory of CSVs).
+  dataset_id: snmp_synthetic
+  source_path: datasets/samples/network_health_synthetic.csv
+
+  schema:
+    timestamp_column: timestamp
+    device_column: device_id
+    interface_column: interface_id
+    # Optional anomaly label column (0 = healthy, 1 = anomalous); null when
+    # the telemetry is unlabeled.
+    label_column: label
+
+    # Columns every telemetry file must provide.
+    required_columns:
+      - timestamp
+      - device_id
+      - interface_id
+      - ifInOctets
+      - ifOutOctets
+      - ifInErrors
+      - ifOutErrors
+      - ifInDiscards
+      - ifOutDiscards
+      - ifOperStatus
+      - cpu_usage
+      - memory_usage
+      - latency_ms
+
+    # Monotonic SNMP counters (validated for monotonicity; converted to
+    # deltas/rates in preprocessing).
+    counter_columns:
+      - ifInOctets
+      - ifOutOctets
+      - ifInErrors
+      - ifOutErrors
+      - ifInDiscards
+      - ifOutDiscards
+
+    # Instantaneous gauge metrics.
+    gauge_columns:
+      - cpu_usage
+      - memory_usage
+      - latency_ms
+      - packet_loss
+      - jitter_ms
+      - bandwidth_utilization
+
+    # Operational/administrative status columns (status-change features).
+    status_columns:
+      - ifOperStatus
+      - ifAdminStatus
+
+    # Value ranges: [min, max] per column (clipped in preprocessing,
+    # violations reported by validation). Counters/gauges are additionally
+    # required to be non-negative.
+    bounded_columns:
+      cpu_usage: [0, 100]
+      memory_usage: [0, 100]
+      packet_loss: [0, 100]
+      bandwidth_utilization: [0, 100]
+
+  preprocessing:
+    # Duplicate definition: one reading per (timestamp, device, interface).
+    duplicate_subset: [timestamp, device_id, interface_id]
+    # Missing numeric values: forward-fill per (device, interface) series,
+    # back-fill the leading gap, drop rows still incomplete.
+    missing_strategy: forward_fill
+    # Negative counter deltas (reset/wrap) are clipped to zero.
+    counter_reset_handling: clip_zero
+    # Optional pandas resample rule per series (e.g. "5min"); null disables.
+    resample: null
+    # CHRONOLOGICAL split fractions (time-series: never random).
+    split:
+      train: 0.70
+      validation: 0.15
+      test: 0.15
+
+  features:
+    # Rolling windows (in samples, per device/interface series).
+    rolling_windows: [3, 6]
+    rolling_stats: [mean, std, max]
+    # Lag steps (per series).
+    lags: [1, 2]
+
+  model:
+    isolation_forest:
+      params:
+        n_estimators: 200
+        max_samples: auto
+        contamination: auto
+        random_state: 42
+        n_jobs: -1
+      # Unlabeled thresholding: scores above this train-score quantile are
+      # flagged anomalous.
+      threshold_quantile: 0.99
+
+  # ---------------------------------------------------------------------------
+  # Dataset registry (Phase 2 adapters)
+  # ---------------------------------------------------------------------------
+  # Registered raw/public datasets and how to convert them to the canonical
+  # telemetry schema. Each entry selects an adapter `type` and a `source_path`
+  # (a CSV file or a directory of CSVs); non-canonical types also need an
+  # `output_path` for the converted CSV. Optional per-dataset `options` extend
+  # column aliases, set constant device/interface ids, map labels and control
+  # preservation of unrecognised columns.
+  #
+  # Convert with:
+  #   python -m scripts.prepare_network_health_dataset --dataset <id>
+  #   python -m scripts.prepare_network_health_dataset --dataset <id> --inspect
+  #
+  # Raw datasets are NEVER committed and NEVER downloaded automatically; a
+  # missing source_path is a hard error (no synthetic data is fabricated).
+  datasets:
+    synthetic:
+      type: canonical_csv
+      source_path: datasets/samples/network_health_synthetic.csv
+      output_path: datasets/processed/network_health/synthetic.csv
+
+    snmp_mib_2016:
+      type: snmp_mib_2016
+      source_path: datasets/raw/snmp_mib_2016
+      output_path: datasets/processed/network_health/snmp_mib_2016.csv
+      options:
+        # Constant ids used only when the raw dump lacks device/interface
+        # columns.
+        device_id: snmp_device_0
+        interface_id: if_0
+        # Map the dataset's class column to a 0/1 anomaly label.
+        label_map:
+          normal: 0
+          anomaly: 1
+        preserve_unknown: false
+
+    lcore_d:
+      type: lcore_d
+      source_path: datasets/raw/lcore_d
+      output_path: datasets/processed/network_health/lcore_d.csv
+      options:
+        device_id: core_node_0
+        interface_id: link_0
+        preserve_unknown: false

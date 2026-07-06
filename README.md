@@ -157,6 +157,15 @@ The architecture is designed to support additional intrusion detection datasets 
 - Model bundles are resolved through the registry (no hardcoded paths) and cached in memory per (dataset, stage); requests with missing columns, invalid CSV, oversized batches or unknown datasets get clean HTTP errors without stack traces
 - Configuration in `configs/api.yaml`: host/port, served stage, row cap, probability output, cache toggle
 
+### Engine B — Network Health Foundation
+
+- Modular telemetry subsystem (`src/network_health/`) over CSV-based SNMP/MIB metrics with a fully configurable schema (`configs/network_health.yaml`) — column roles (counters, gauges, status), required columns and value bounds are never hardcoded
+- Schema validation (required columns, timestamp parseability, numeric payload, duplicates, missing values, impossible negatives, counter monotonicity, per-device/interface coverage) persisting JSON + Markdown reports
+- Leakage-free preprocessing: per-series counter deltas and per-second rates (resets clipped), value clipping, optional resampling and strictly **chronological** train/validation/test splits
+- Health feature engineering: canonical traffic/error/discard rates, configurable rolling mean/std/max windows, lags and status-change indicators — all causal, per (device, interface) series
+- Isolation Forest baseline: trains on healthy rows when labels exist (supervised metrics: precision/recall/F1/ROC-AUC/confusion matrix), unsupervised with a quantile threshold otherwise (score distribution, anomaly rate); experiments persist model/metrics/manifest like Engine A
+- Scripts: `validate_network_health`, `run_network_health_preprocessing`, `train_network_health_model` (also writes `outputs/network_health/reports/network_health_report.md`); verified end-to-end on synthetic telemetry (`datasets/samples/network_health_synthetic.csv`) with injected interface degradation — recall 1.0, ROC-AUC 0.97
+
 ### Software Quality
 
 - Unit testing
@@ -391,7 +400,9 @@ NIMS is built around the following principles:
 - ✅ Hyperparameter optimization (Optuna)
 - ✅ Model registry with production promotion
 - ✅ Batch inference API (FastAPI)
-- ⏳ Engine B network-health prediction (SNMP telemetry)
+- 🚧 Engine B network-health prediction (foundation complete: telemetry
+  validation, chronological preprocessing, health features, Isolation Forest
+  baseline; LSTM autoencoder and live SNMP polling next)
 - ⏳ Correlation engine (cyber + network health)
 - ⏳ Real-time monitoring dashboard
 - ⏳ Docker / deployment hardening

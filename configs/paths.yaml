@@ -61,6 +61,10 @@ paths:
   # assignments).
   registry_dir: outputs/registry
 
+  # Engine B network-health artefacts (validation, processed telemetry,
+  # features, experiments, reports).
+  network_health_dir: outputs/network_health
+
   # Raw dataset roots. Names contain spaces / vendor quirks on disk, so they
   # are spelled out explicitly here rather than derived from the dataset id.
   raw:
