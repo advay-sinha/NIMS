@@ -48,13 +48,19 @@ _CSV_SPECS: dict[str, tuple[str, Sequence[str]]] = {
 
 
 def write_inventory(
-    inventory: NetworkInventory, root: Path, topology: Any | None = None
+    inventory: NetworkInventory,
+    root: Path,
+    topology: Any | None = None,
+    findings: Any | None = None,
+    rule_summary: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     """Persist a full inventory snapshot; return the written paths by key.
 
     When a Phase 2 ``topology`` is supplied it is written alongside the
-    inventory (``topology.json`` + CSVs) and summarised in the report and
-    metadata.
+    inventory (``topology.json`` + CSVs). When Phase 3 ``findings`` and their
+    ``rule_summary`` are supplied they are written too (``findings.json`` /
+    ``.csv`` / ``rule_summary.json``). Everything present is summarised in the
+    report and metadata.
     """
     from src.utils.io import write_json
     from src.utils.paths import ensure_dir
@@ -87,6 +93,13 @@ def write_inventory(
         topo_summary = topology_summary(topology)
         paths.update(write_topology(topology, out_dir))
 
+    findings_report = None
+    if findings is not None and rule_summary is not None:
+        from src.network_config.rule_artifacts import write_findings
+
+        paths.update(write_findings(findings, rule_summary, out_dir))
+        findings_report = {**rule_summary, "top_findings": _top_findings(findings)}
+
     metadata = _metadata(inventory, summary)
     if topo_summary is not None:
         metadata["topology"] = {
@@ -94,9 +107,16 @@ def write_inventory(
             "edge_count": topo_summary["edge_count"],
             "warning_count": topo_summary["warning_count"],
         }
+    if rule_summary is not None:
+        metadata["findings"] = {
+            "total_findings": rule_summary["total_findings"],
+            "suppressed_count": rule_summary["suppressed_count"],
+            "rules_evaluated": len(rule_summary["rules_evaluated"]),
+        }
     paths["metadata"] = write_json(metadata, out_dir / "metadata.json")
 
-    report = network_config_report(inventory, summary, topo_summary)
+    report = network_config_report(inventory, summary, topo_summary,
+                                   findings_report)
     report_path = out_dir / "network_config_report.md"
     report_path.write_text(report, encoding="utf-8")
     paths["report"] = report_path
@@ -153,3 +173,14 @@ def _cell(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return ";".join(str(v) for v in value)
     return "" if value is None else value
+
+
+def _top_findings(findings: Any, limit: int = 5) -> list[dict[str, Any]]:
+    """The most severe open findings for the report (critical/high first)."""
+    import dataclasses
+
+    top = [
+        dataclasses.asdict(f) for f in findings
+        if f.status == "open" and f.severity in {"critical", "high"}
+    ]
+    return top[:limit]

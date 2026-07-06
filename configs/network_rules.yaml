@@ -1,0 +1,101 @@
+# =============================================================================
+# NetSentinel — Engine C Network Configuration Rules (Phase 3)
+# =============================================================================
+#
+# YAML-driven rule definitions evaluated against the offline inventory and
+# topology. Detection only — findings never trigger remediation (a later,
+# human-gated phase). Every threshold, expected VLAN and keyword lives here,
+# not in Python. Set a rule's `enabled: false` (or `global.enabled: false`) to
+# skip it; rules absent from this file are treated as disabled.
+#
+# =============================================================================
+
+global:
+  enabled: true
+
+rules:
+  # -- VLAN ------------------------------------------------------------------
+  ACCESS_PORT_DISALLOWED_VLAN:
+    enabled: true
+    severity: high
+    category: vlan
+    confidence: high
+    # Access ports whose VLAN is not in this set are flagged (empty = inert).
+    allowed_vlans: [1, 10, 20, 30, 40, 99]
+    tags: [vlan, access]
+
+  TRUNK_MISSING_REQUIRED_VLAN:
+    enabled: true
+    severity: high
+    category: vlan
+    required_vlans: [10, 20, 30]
+    tags: [vlan, trunk]
+
+  TRUNK_UNAUTHORIZED_VLAN:
+    enabled: true
+    severity: medium
+    category: vlan
+    authorized_vlans: [1, 10, 20, 30, 40, 99]
+    tags: [vlan, trunk]
+
+  NATIVE_VLAN_MISMATCH:
+    enabled: false
+    severity: medium
+    category: vlan
+    # Set to the site's standard native VLAN to enable this candidate check.
+    expected_native_vlan: 99
+    tags: [vlan, trunk]
+
+  # -- Port state ------------------------------------------------------------
+  ACCESS_PORT_TOO_MANY_MACS:
+    enabled: true
+    severity: medium
+    category: port
+    threshold: 5
+    tags: [port, mac]
+
+  UNUSED_PORT_ADMIN_UP:
+    enabled: true
+    severity: low
+    category: port
+    tags: [port, hygiene]
+
+  # -- PoE -------------------------------------------------------------------
+  POE_DISABLED_EXPECTED:
+    enabled: true
+    severity: high
+    category: poe
+    expected_poe_keywords: [ap, phone, camera, "access point"]
+    tags: [poe]
+
+  # -- STP / loop risk -------------------------------------------------------
+  STP_BLOCKING_ACCESS_PORT:
+    enabled: true
+    severity: medium
+    category: stp
+    tags: [stp, loop]
+
+  MAC_ON_MULTIPLE_INTERFACES:
+    enabled: true
+    severity: medium
+    category: stp
+    confidence: low
+    tags: [loop, mac]
+
+  # -- Topology (requires topology; skipped gracefully when unavailable) -----
+  TRUNK_WITHOUT_NEIGHBOR:
+    enabled: true
+    severity: medium
+    category: topology
+    tags: [topology, trunk]
+
+# Suppression: silence known/accepted findings. Each item ANDs the fields it
+# specifies (rule_id, device, interface, tag); a finding matching any item is
+# marked status=suppressed (still written, excluded from open counts).
+suppression:
+  enabled: true
+  items: []
+    # - rule_id: UNUSED_PORT_ADMIN_UP
+    #   device: access-sw-01
+    #   interface: Gi0/7
+    # - tag: hygiene

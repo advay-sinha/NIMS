@@ -45,6 +45,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--skip-topology", action="store_true",
         help="Skip Phase 2 topology construction (inventory only).",
     )
+    parser.add_argument(
+        "--skip-rules", action="store_true",
+        help="Skip Phase 3 rule evaluation.",
+    )
+    parser.add_argument(
+        "--rules-config", default=None,
+        help="Rules YAML (defaults to network_config.rules.config_path).",
+    )
     return parser
 
 
@@ -70,8 +78,26 @@ def main(argv: list[str] | None = None) -> int:
 
         topology = build_topology(inventory, topo_cfg)
 
+    findings = None
+    rule_summary = None
+    rules_cfg = dict(cfg.get("rules") or {})
+    if rules_cfg.get("enabled", True) and not args.skip_rules:
+        from src.network_config.rules import RuleEngine, load_rules_config
+
+        rules_path = (args.rules_config or rules_cfg.get("config_path")
+                      or "configs/network_rules.yaml")
+        try:
+            rules_config = load_rules_config(rules_path)
+        except FileNotFoundError as exc:
+            logger.error("%s", exc)
+            return 1
+        findings, rule_summary = RuleEngine(rules_config).evaluate(
+            inventory, topology
+        )
+
     paths = write_inventory(
-        inventory, Path(ctx.paths.network_config_dir), topology
+        inventory, Path(ctx.paths.network_config_dir), topology,
+        findings, rule_summary,
     )
     logger.info(
         "Analyzed %d device(s), %d interface(s); snapshot at %s.",
@@ -82,6 +108,13 @@ def main(argv: list[str] | None = None) -> int:
         logger.info(
             "Topology: %d node(s), %d edge(s), %d warning(s).",
             len(topology.nodes), len(topology.edges), len(topology.warnings),
+        )
+    if rule_summary is not None:
+        logger.info(
+            "Rules: %d finding(s) from %d rule(s) (%d suppressed).",
+            rule_summary["total_findings"],
+            len(rule_summary["rules_evaluated"]),
+            rule_summary["suppressed_count"],
         )
     if inventory.files_missing:
         logger.info("Missing input files: %s",

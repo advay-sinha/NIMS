@@ -46,6 +46,12 @@ network_config:
       mac_table: low
       stp_inferred: medium
 
+  # Phase 3 rule engine. Runs after topology unless disabled or --skip-rules.
+  # Rule definitions live in a standalone file (override with --rules-config).
+  rules:
+    enabled: true
+    config_path: configs/network_rules.yaml
+
   # Safety posture (documented invariant for this phase). Live access and
   # remediation are disabled by design and have no code path in Phase 1/2.
   safety:
