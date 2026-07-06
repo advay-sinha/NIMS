@@ -1,0 +1,38 @@
+# =============================================================================
+# NetSentinel — Engine C Network Configuration Intelligence (Phase 1)
+# =============================================================================
+#
+# Offline, READ-ONLY parsing of saved network device command outputs into a
+# structured inventory. This phase performs NO live device access, NO SNMP
+# polling and NO remediation — those are later, human-gated phases and are
+# intentionally not configurable here.
+#
+# =============================================================================
+
+network_config:
+  # Directory of saved "show ..." command-output text files (a snapshot of one
+  # device, captured out-of-band). Read-only; never modified.
+  input_dir: datasets/samples/network_config
+
+  # Default snapshot id when the CLI is run without --snapshot-id.
+  snapshot_id: sample_offline
+
+  # Logical input -> saved filename. Missing files are warned about and skipped;
+  # override any entry to match a different capture naming scheme.
+  files:
+    interface_status: show_interface_status.txt
+    vlan_brief: show_vlan_brief.txt
+    trunk: show_interfaces_trunk.txt
+    spanning_tree: show_spanning_tree.txt
+    mac_table: show_mac_address_table.txt
+    power_inline: show_power_inline.txt
+    lldp_neighbors: show_lldp_neighbors.txt
+    cdp_neighbors: show_cdp_neighbors.txt
+    running_config: show_running_config.txt
+
+  # Safety posture (documented invariant for this phase). Live access and
+  # remediation are disabled by design and have no code path in Phase 1.
+  safety:
+    mode: read_only
+    live_device_access: false
+    remediation_enabled: false

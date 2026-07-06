@@ -33,3 +33,4 @@ defaults:
   - registry.yaml
   - api.yaml
   - network_health.yaml
+  - network_config.yaml

@@ -65,6 +65,10 @@ paths:
   # features, experiments, reports).
   network_health_dir: outputs/network_health
 
+  # Engine C network-configuration artefacts, namespaced per snapshot as
+  # outputs/network_config/<snapshot_id>/ (inventory, per-object CSVs, report).
+  network_config_dir: outputs/network_config
+
   # Raw dataset roots. Names contain spaces / vendor quirks on disk, so they
   # are spelled out explicitly here rather than derived from the dataset id.
   raw:

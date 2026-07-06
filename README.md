@@ -167,6 +167,15 @@ The architecture is designed to support additional intrusion detection datasets 
 - Config-driven dataset adapters (`src/network_health/adapters.py`, `dataset_registry.py`): a single alias-based mapping engine converts raw/public telemetry — SNMP-MIB 2016 counter dumps, LCORE-D core-network exports or already-canonical CSVs — into the one canonical telemetry schema the pipeline consumes; column aliases, constant device/interface ids, label maps and unknown-column preservation are all configurable per dataset in `configs/network_health.yaml`, no vendor naming is hardcoded. Missing raw sources fail with a clear error (no fabricated data); a `--inspect` mode reports inferred timestamp/label/metric columns for unknown schemas, and adapter runs persist `adapter_report.{json,md}`
 - Scripts: `prepare_network_health_dataset` (raw → canonical CSV), `validate_network_health`, `run_network_health_preprocessing`, `train_network_health_model` (also writes `outputs/network_health/reports/network_health_report.md`) — all resolvable by registered dataset id (`--dataset`); verified end-to-end on synthetic telemetry (`datasets/samples/network_health_synthetic.csv`) with injected interface degradation — recall 1.0, ROC-AUC 0.97
 
+### Engine C — Network Configuration Intelligence (Offline Phase 1)
+
+- Modular, **offline and read-only** configuration subsystem (`src/network_config/`) that turns saved device command outputs into a structured inventory — no live device access, SNMP polling or remediation (those are later, gated phases with no code path in this phase)
+- Typed models (`models.py`) for device, interface, VLAN, trunk, PoE, neighbor, MAC entry and STP state, aggregated into a per-device snapshot and a network inventory
+- Tolerant parsers (`parsers.py`) for `show interface status`, `show vlan brief`, `show interfaces trunk`, `show lldp/cdp neighbors`, `show mac address-table`, `show power inline`, `show spanning-tree` and running-config identity — header-position slicing preserves fields with internal spaces (e.g. `Gig 0/1`, powered-device names), missing columns and VLAN ranges are handled, and a missing input file is warned about and skipped
+- Inventory builder (`inventory.py`) merges parsed outputs, enriches interfaces with PoE state and derives access/trunk ports, MAC presence, unused/down ports and STP state counts; configuration-driven filenames (`configs/network_config.yaml`)
+- Per-snapshot artifacts under `outputs/network_config/<snapshot_id>/`: `inventory.json`, `metadata.json`, `network_config_report.md` and one CSV per object type (`interfaces`, `vlans`, `trunks`, `neighbors`, `mac_table`, `poe_status`, `stp_state`)
+- Entry point `python -m scripts.analyze_network_config`; verified on synthetic saved outputs (`datasets/samples/network_config/`)
+
 ### Software Quality
 
 - Unit testing
@@ -184,12 +193,15 @@ hyperparameter optimization, a model registry with promoted production models
 per dataset, and a batch inference API serving them. Models are trained
 manually on local hardware.
 
-Next up:
+Engine B network-health prediction and Engine C offline network-configuration
+analysis are underway alongside it. Next up:
 
 - Extend explainability backends to LightGBM and the deep models
-- Engine B network-health prediction over SNMP telemetry (Isolation Forest /
-  LSTM autoencoder)
-- Correlation engine combining cyber and network-health signals
+- Engine B network-health prediction over SNMP telemetry (LSTM autoencoder,
+  live polling)
+- Engine C configuration rule engine, findings and human-approved remediation
+  planning (still offline / read-only)
+- Correlation engine combining cyber, network-health and configuration signals
 - Monitoring dashboard
 
 ---
@@ -239,6 +251,7 @@ NIMS/
 │   ├── registry/       # model registry, promotion, resolver
 │   ├── api/            # FastAPI batch inference service
 │   ├── network_health/ # Engine B telemetry: adapters, validation, features, baseline
+│   ├── network_config/ # Engine C offline config parsing, inventory, reporting
 │   └── utils/          # config, paths, hardware, io, logging, seed
 ├── tests/
 ├── pyproject.toml
@@ -382,6 +395,19 @@ The bundled `synthetic` dataset runs the same chain without any raw files
 `outputs/network_health/` (validation, adapter reports, processed splits,
 features, experiments, report).
 
+Analyze saved network-device command outputs offline (Engine C, read-only)
+into a structured inventory:
+
+```bash
+python -m scripts.analyze_network_config \
+    --input-dir datasets/samples/network_config --snapshot-id sample_offline
+```
+
+Outputs are written under `outputs/network_config/<snapshot_id>/`
+(`inventory.json`, `metadata.json`, `network_config_report.md` and one CSV per
+object type). Input filenames are configurable in `configs/network_config.yaml`;
+missing inputs are reported and skipped.
+
 Run the test suite:
 
 ```bash
@@ -423,7 +449,10 @@ NIMS is built around the following principles:
   dataset adapters, telemetry validation, chronological preprocessing, health
   features, Isolation Forest baseline; LSTM autoencoder and live SNMP polling
   next)
-- ⏳ Correlation engine (cyber + network health)
+- 🚧 Engine C network configuration intelligence (offline Phase 1 complete:
+  read-only command-output parsing, typed inventory, per-snapshot artifacts;
+  rule engine and remediation planning next)
+- ⏳ Correlation engine (cyber + network health + configuration)
 - ⏳ Real-time monitoring dashboard
 - ⏳ Docker / deployment hardening
 
@@ -433,7 +462,7 @@ NIMS is built around the following principles:
 
 **Current Development Stage:** Serving & Network-Health Expansion
 
-The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. The next milestone is Engine B: network-health prediction over SNMP telemetry, followed by the correlation engine and monitoring dashboard.
+The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. Engine B (network-health prediction over SNMP telemetry) has a working foundation with dataset adapters, and Engine C has an offline, read-only network-configuration parser producing a structured inventory. The next milestones extend both engines — network-health LSTM modeling and Engine C's configuration rule engine and remediation planning — ahead of the correlation engine and monitoring dashboard.
 
 ---
 

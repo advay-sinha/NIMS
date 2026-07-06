@@ -83,6 +83,8 @@ class Paths:
     registry_dir: Path
     # Engine B network-health artefacts.
     network_health_dir: Path
+    # Engine C network-configuration artefacts (per-snapshot inventory/reports).
+    network_config_dir: Path
     # Mapping of dataset id -> read-only raw directory.
     raw: Mapping[str, Path]
 
@@ -144,6 +146,7 @@ class Paths:
             optimization_dir=resolve("optimization_dir"),
             registry_dir=resolve("registry_dir"),
             network_health_dir=resolve("network_health_dir"),
+            network_config_dir=resolve("network_config_dir"),
             raw=raw,
         )
 
