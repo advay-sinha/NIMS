@@ -164,7 +164,8 @@ The architecture is designed to support additional intrusion detection datasets 
 - Leakage-free preprocessing: per-series counter deltas and per-second rates (resets clipped), value clipping, optional resampling and strictly **chronological** train/validation/test splits
 - Health feature engineering: canonical traffic/error/discard rates, configurable rolling mean/std/max windows, lags and status-change indicators — all causal, per (device, interface) series
 - Isolation Forest baseline: trains on healthy rows when labels exist (supervised metrics: precision/recall/F1/ROC-AUC/confusion matrix), unsupervised with a quantile threshold otherwise (score distribution, anomaly rate); experiments persist model/metrics/manifest like Engine A
-- Scripts: `validate_network_health`, `run_network_health_preprocessing`, `train_network_health_model` (also writes `outputs/network_health/reports/network_health_report.md`); verified end-to-end on synthetic telemetry (`datasets/samples/network_health_synthetic.csv`) with injected interface degradation — recall 1.0, ROC-AUC 0.97
+- Config-driven dataset adapters (`src/network_health/adapters.py`, `dataset_registry.py`): a single alias-based mapping engine converts raw/public telemetry — SNMP-MIB 2016 counter dumps, LCORE-D core-network exports or already-canonical CSVs — into the one canonical telemetry schema the pipeline consumes; column aliases, constant device/interface ids, label maps and unknown-column preservation are all configurable per dataset in `configs/network_health.yaml`, no vendor naming is hardcoded. Missing raw sources fail with a clear error (no fabricated data); a `--inspect` mode reports inferred timestamp/label/metric columns for unknown schemas, and adapter runs persist `adapter_report.{json,md}`
+- Scripts: `prepare_network_health_dataset` (raw → canonical CSV), `validate_network_health`, `run_network_health_preprocessing`, `train_network_health_model` (also writes `outputs/network_health/reports/network_health_report.md`) — all resolvable by registered dataset id (`--dataset`); verified end-to-end on synthetic telemetry (`datasets/samples/network_health_synthetic.csv`) with injected interface degradation — recall 1.0, ROC-AUC 0.97
 
 ### Software Quality
 
@@ -237,6 +238,7 @@ NIMS/
 │   ├── optimization/   # Optuna search spaces, objective, studies
 │   ├── registry/       # model registry, promotion, resolver
 │   ├── api/            # FastAPI batch inference service
+│   ├── network_health/ # Engine B telemetry: adapters, validation, features, baseline
 │   └── utils/          # config, paths, hardware, io, logging, seed
 ├── tests/
 ├── pyproject.toml
@@ -363,6 +365,23 @@ curl http://127.0.0.1:8000/models
 curl -X POST http://127.0.0.1:8000/predict/unsw_nb15 -F "file=@datasets/samples/unsw_nb15_sample.csv"
 ```
 
+Prepare and analyze network-health (Engine B) telemetry. Datasets are
+registered in `configs/network_health.yaml`; adapters convert raw sources to
+the canonical schema before validation, preprocessing and training:
+
+```bash
+python -m scripts.prepare_network_health_dataset --dataset snmp_mib_2016 --inspect
+python -m scripts.prepare_network_health_dataset --dataset snmp_mib_2016
+python -m scripts.validate_network_health --dataset snmp_mib_2016
+python -m scripts.run_network_health_preprocessing --dataset snmp_mib_2016
+python -m scripts.train_network_health_model --dataset snmp_mib_2016 --model isolation_forest
+```
+
+The bundled `synthetic` dataset runs the same chain without any raw files
+(`--dataset synthetic`). Network-health artifacts are written under
+`outputs/network_health/` (validation, adapter reports, processed splits,
+features, experiments, report).
+
 Run the test suite:
 
 ```bash
@@ -400,9 +419,10 @@ NIMS is built around the following principles:
 - ✅ Hyperparameter optimization (Optuna)
 - ✅ Model registry with production promotion
 - ✅ Batch inference API (FastAPI)
-- 🚧 Engine B network-health prediction (foundation complete: telemetry
-  validation, chronological preprocessing, health features, Isolation Forest
-  baseline; LSTM autoencoder and live SNMP polling next)
+- 🚧 Engine B network-health prediction (foundation complete: config-driven
+  dataset adapters, telemetry validation, chronological preprocessing, health
+  features, Isolation Forest baseline; LSTM autoencoder and live SNMP polling
+  next)
 - ⏳ Correlation engine (cyber + network health)
 - ⏳ Real-time monitoring dashboard
 - ⏳ Docker / deployment hardening
