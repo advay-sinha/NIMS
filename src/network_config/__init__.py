@@ -15,4 +15,5 @@ __all__ = [
     "diff", "verification", "diff_artifacts",
     "intelligence", "intelligence_artifacts",
     "batfish_adapter", "batfish_artifacts",
+    "dashboard_export", "dashboard_artifacts",
 ]
