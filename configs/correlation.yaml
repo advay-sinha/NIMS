@@ -1,0 +1,100 @@
+# NetSentinel — Correlation Engine (Phase 9) configuration
+#
+# Drives the offline, artefact-driven correlation of Engine A (cyber), Engine B
+# (network-health) and Engine C (configuration) signals into unified incidents.
+#
+# The correlation engine reads persisted artefacts only. It never runs an engine
+# pipeline, never captures packets, never polls SNMP, never contacts a device
+# and never executes a command. All rules are deterministic (no ML).
+
+global:
+  enabled: true
+
+# ---------------------------------------------------------------- rules
+# Each rule can be enabled/disabled and tuned independently. Rule ids match the
+# constants in src/correlation/rules.py.
+rules:
+  DOS_SATURATION:
+    enabled: true
+    min_engines: 2          # minimum distinct engines required to fire
+    severity_boost: 1       # severity escalation when multi-engine
+
+  LINK_DEGRADATION:
+    enabled: true
+    severity_boost: 0
+
+  CONFIG_EXPOSURE:
+    enabled: true
+    severity_boost: 0
+
+  VLAN_POLICY_RISK:
+    enabled: true
+    severity_boost: 1
+
+  SINGLE_ENGINE_HIGH_RISK:
+    enabled: true
+    min_severity: high      # only high/critical single-engine signals fall back
+
+# ---------------------------------------------------------------- scoring
+# Deterministic confidence adjustments (0-1, clamped). Severity uses the most
+# severe member signal, escalated by the per-rule severity_boost and by exact
+# cross-engine interface alignment.
+scoring:
+  aggregate_signal_confidence_penalty: 0.2
+  same_interface_bonus: 0.25
+  same_device_bonus: 0.15
+  multi_engine_bonus: 0.2
+
+# ---------------------------------------------------------------- engine inputs
+# How each engine's artefacts are turned into signals. Kept in config so no
+# site-specific policy is hardcoded in Python.
+
+engine_a:
+  # Aggregate cyber signal — there is no per-flow alert log yet, so Engine A
+  # contributes a conservative dataset/model-level indicator.
+  aggregate_severity: medium
+  aggregate_confidence: 0.6
+  # Attack families present in each dataset (used only for cautious tagging, not
+  # to fabricate per-flow alerts).
+  attack_families_by_dataset:
+    unsw_nb15: [dos, exploits, reconnaissance, fuzzers, generic, backdoor,
+                analysis, shellcode, worms]
+    nsl_kdd: [dos, probe, r2l, u2r]
+    cicids2017: [dos, ddos, portscan, bruteforce, web_attack, botnet,
+                 infiltration]
+  # Families that count as denial-of-service / flood activity for DOS_SATURATION.
+  dos_families: [dos, ddos, flood]
+
+engine_b:
+  aggregate_confidence: 0.6
+  # Predicted-anomaly ratio thresholds -> aggregate signal severity.
+  anomaly_severity_thresholds:
+    high: 0.2
+    medium: 0.05
+
+engine_c:
+  # Finding confidence label -> numeric signal confidence.
+  finding_confidence:
+    high: 0.9
+    medium: 0.75
+    low: 0.55
+  topology_warning_confidence: 0.6
+  device_card_confidence: 0.5
+  # Topology-warning severity label -> normalised signal severity.
+  topology_warning_severity:
+    critical: critical
+    warning: medium
+    info: info
+  # Device-health-card status -> signal severity (healthy/unknown are ignored).
+  device_card_severity:
+    critical: high
+    warning: medium
+  # Rule-id / category buckets used by the correlation rules.
+  exposure_rules: [UNUSED_PORT_ADMIN_UP, TRUNK_WITHOUT_NEIGHBOR,
+                   TRUNK_UNAUTHORIZED_VLAN, STP_DISABLED, STP_MISSING,
+                   PORT_UP_NO_DESCRIPTION]
+  vlan_rules: [TRUNK_UNAUTHORIZED_VLAN, TRUNK_MISSING_REQUIRED_VLAN,
+               WRONG_ACCESS_VLAN, WRONG_NATIVE_VLAN]
+  degradation_categories: [port, stp, performance, availability, loop risk,
+                           loop_risk, topology]
+  saturation_categories: [performance, topology, availability, interface]

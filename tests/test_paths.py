@@ -45,6 +45,7 @@ def test_raw_dir_unknown_dataset_raises_key_error() -> None:
         registry_dir=Path("outputs/registry"),
         network_health_dir=Path("outputs/network_health"),
         network_config_dir=Path("outputs/network_config"),
+        correlation_dir=Path("outputs/correlation"),
         raw={"nsl_kdd": Path("datasets/NSL-KDD")},
     )
     assert p.raw_dir("nsl_kdd") == Path("datasets/NSL-KDD")

@@ -69,6 +69,10 @@ paths:
   # outputs/network_config/<snapshot_id>/ (inventory, per-object CSVs, report).
   network_config_dir: outputs/network_config
 
+  # Correlation-engine artefacts, namespaced per correlation run as
+  # outputs/correlation/<correlation_id>/ (signals, incidents, report).
+  correlation_dir: outputs/correlation
+
   # Raw dataset roots. Names contain spaces / vendor quirks on disk, so they
   # are spelled out explicitly here rather than derived from the dataset id.
   raw:

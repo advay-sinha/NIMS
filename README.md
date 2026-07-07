@@ -186,6 +186,13 @@ The architecture is designed to support additional intrusion detection datasets 
 - **Optional Batfish validation adapter** (`batfish_adapter.py`): cross-checks saved configs against the Batfish model for external validation evidence — **disabled by default**, `pybatfish` imported lazily, no Docker/pybatfish required to run or test (`python -m scripts.run_batfish_validation`)
 - **Live device access and command execution are not implemented** — Engine C is offline and read-only by design; remediation is plans-only. A static audit (`python -m scripts.validate_engine_c_safety`) enforces no live-device libraries or unsafe config defaults. See `docs/engine_c_network_config.md`, `docs/engine_c_safety_audit.md` and `docs/engine_c_integration_handoff.md`
 
+### Correlation Engine (Offline)
+
+- **Cross-engine signal correlation** (`src/correlation/`): reads the persisted artefacts of Engine A (aggregate cyber), Engine B (aggregate network-health anomalies) and Engine C (findings, topology warnings, device health cards) and groups them into unified, operator-facing incidents
+- **Deterministic, YAML-configurable rules** (`configs/correlation.yaml`): DoS/saturation, physical/config link degradation, configuration exposure, VLAN policy risk, and a single-engine high-risk fallback — no ML, with deterministic severity/confidence scoring and content-addressed incident ids
+- **Unified incident artefacts**: `signals.json/csv`, `incidents.json/csv`, `correlation_summary.json` and an operator `correlation_report.md` (`python -m scripts.run_correlation`)
+- **Offline and artefact-driven only** — it never runs an engine pipeline, captures packets, polls SNMP, contacts a device or executes a command; aggregate signals are flagged and down-weighted so they never masquerade as per-flow alerts
+
 ### Software Quality
 
 - Unit testing
@@ -209,9 +216,12 @@ analysis are underway alongside it. Next up:
 - Extend explainability backends to LightGBM and the deep models
 - Engine B network-health prediction over SNMP telemetry (LSTM autoencoder,
   live polling)
-- Correlation engine combining Engine A cyber alerts, Engine B network-health
-  anomalies and Engine C configuration findings into unified incidents
-- Monitoring dashboard consuming the Engine C dashboard JSON exports
+- Monitoring dashboard consuming the Engine C dashboard JSON exports and the
+  correlation incidents
+
+The correlation engine that combines Engine A cyber alerts, Engine B network-
+health anomalies and Engine C configuration findings into unified incidents is
+in place as an offline, artefact-driven foundation.
 
 Engine C's offline configuration-intelligence pipeline is complete (parsing →
 inventory → topology → findings → dry-run remediation → dry-run execution/audit
@@ -452,6 +462,13 @@ python -m scripts.run_batfish_validation --snapshot-id sample_remediation
 
 # Static safety audit: no live-device libraries, safe config defaults
 python -m scripts.validate_engine_c_safety
+
+# Correlate Engine A/B/C artefacts into unified incidents (offline)
+python -m scripts.run_correlation \
+  --engine-c-snapshot sample_remediation \
+  --engine-b-dataset synthetic \
+  --engine-a-dataset unsw_nb15 \
+  --correlation-id sample_correlation
 ```
 
 **Live device access and command execution are not implemented** — Engine C is
@@ -507,7 +524,8 @@ NIMS is built around the following principles:
   audit logging, snapshot diff + verification, a consolidated intelligence
   report, dashboard JSON exports, and an optional Batfish adapter; live device
   access and command execution are not implemented — out of scope by design)
-- ⏳ Correlation engine (cyber + network health + configuration)
+- ✅ Correlation engine (cyber + network health + configuration → unified
+  incidents; offline, artefact-driven, no execution)
 - ⏳ Real-time monitoring dashboard
 - ⏳ Docker / deployment hardening
 
@@ -517,7 +535,7 @@ NIMS is built around the following principles:
 
 **Current Development Stage:** Serving & Network-Health Expansion
 
-The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. Engine B (network-health prediction over SNMP telemetry) has a working foundation with dataset adapters, and Engine C's offline, read-only network-configuration pipeline is complete: command-output parsing to a structured inventory, a derived LLDP/CDP/MAC/STP topology, a YAML-driven rule engine, dry-run remediation plans, a dry-run executor with audit logging, snapshot diff + remediation verification, a consolidated intelligence report, dashboard-ready JSON exports, and an optional Batfish validation adapter — all offline and read-only, with live device access and command execution intentionally not implemented. The next milestones are the correlation engine (combining cyber, network-health and configuration signals) and the monitoring dashboard, alongside network-health LSTM modeling.
+The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. Engine B (network-health prediction over SNMP telemetry) has a working foundation with dataset adapters, and Engine C's offline, read-only network-configuration pipeline is complete: command-output parsing to a structured inventory, a derived LLDP/CDP/MAC/STP topology, a YAML-driven rule engine, dry-run remediation plans, a dry-run executor with audit logging, snapshot diff + remediation verification, a consolidated intelligence report, dashboard-ready JSON exports, and an optional Batfish validation adapter — all offline and read-only, with live device access and command execution intentionally not implemented. A correlation engine now sits on top of these engines, reading their persisted artefacts to group Engine A cyber, Engine B network-health and Engine C configuration signals into unified, deterministically scored incidents — offline and artefact-driven, executing nothing. The next milestones are the monitoring dashboard (consuming the Engine C dashboard exports and the correlation incidents) and network-health LSTM modeling.
 
 ---
 

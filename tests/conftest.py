@@ -57,6 +57,7 @@ def make_paths(tmp_path: Path) -> Callable[[Mapping[str, Path]], Paths]:
             registry_dir=tmp_path / "outputs/registry",
             network_health_dir=tmp_path / "outputs/network_health",
             network_config_dir=tmp_path / "outputs/network_config",
+            correlation_dir=tmp_path / "outputs/correlation",
             raw=dict(raw),
         )
 
@@ -110,6 +111,7 @@ def sample_config() -> dict[str, Any]:
             "registry_dir": "outputs/registry",
             "network_health_dir": "outputs/network_health",
             "network_config_dir": "outputs/network_config",
+            "correlation_dir": "outputs/correlation",
             "raw": {"nsl_kdd": "datasets/NSL-KDD"},
         },
         "data": {

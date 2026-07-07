@@ -85,6 +85,8 @@ class Paths:
     network_health_dir: Path
     # Engine C network-configuration artefacts (per-snapshot inventory/reports).
     network_config_dir: Path
+    # Correlation-engine artefacts (per-run signals/incidents/report).
+    correlation_dir: Path
     # Mapping of dataset id -> read-only raw directory.
     raw: Mapping[str, Path]
 
@@ -147,6 +149,7 @@ class Paths:
             registry_dir=resolve("registry_dir"),
             network_health_dir=resolve("network_health_dir"),
             network_config_dir=resolve("network_config_dir"),
+            correlation_dir=resolve("correlation_dir"),
             raw=raw,
         )
 
