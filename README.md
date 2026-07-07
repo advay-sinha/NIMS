@@ -179,6 +179,12 @@ The architecture is designed to support additional intrusion detection datasets 
 - **Dry-run** remediation plan generator (`remediation.py`, `safety.py`) that turns findings into a structured plan — **plans only, no command is ever executed**. Config-driven templates (`configs/remediation.yaml`) produce either command-bearing actions (e.g. `switchport trunk allowed vlan add/remove`, `shutdown`/`no shutdown`, `power inline auto/never`), each with a rollback, a verification step, safety checks and a risk level, or read-only investigation-only actions for loop/topology issues; findings with no safe template become blocked actions. Every command action is `dry_run_only` and `requires_confirmation`, and the generator refuses to emit a change lacking a rollback or verification
 - Per-snapshot artifacts under `outputs/network_config/<snapshot_id>/`: `inventory.json`, `metadata.json`, `network_config_report.md` (with topology, rule-findings and remediation summary sections), one CSV per object type (`interfaces`, `vlans`, `trunks`, `neighbors`, `mac_table`, `poe_status`, `stp_state`), the topology set (`topology.json`, `topology_nodes.csv`, `topology_edges.csv`, `topology_warnings.csv`), the rule set (`findings.json`, `findings.csv`, `rule_summary.json`) and the remediation set (`remediation_plan.json`, `remediation_plan.md`, `remediation_commands.csv`, `remediation_summary.json`)
 - Entry point `python -m scripts.analyze_network_config`: inventory always runs, topology, rules and remediation planning run automatically (`--skip-topology` / `--skip-rules` / `--skip-remediation` to opt out; `--rules-config` / `--remediation-config` for custom files); verified on synthetic saved outputs (`datasets/samples/network_config/`)
+- **Dry-run action executor + audit log** (`executor.py`, `audit.py`): validates a remediation plan without executing anything — every record is `executed = false` / `would_execute = false`, command actions missing a rollback/verification/confirmation are blocked, and an append-only `action_audit_log.jsonl` is written (`python -m scripts.dry_run_network_actions`)
+- **Offline snapshot diff + remediation verification** (`diff.py`, `verification.py`): compares two saved snapshots (interfaces/VLANs/trunks/PoE/STP/topology/findings), classifies findings new/resolved/persistent, and verifies whether remediation goals were met from the after-state — conservative, returning `unknown` rather than false confidence (`python -m scripts.compare_network_snapshots`)
+- **Consolidated intelligence report** (`intelligence.py`): a deterministic, explainable risk score per finding, cautious root-cause hypotheses and prioritised operator action items, rendered to `config_intelligence_report.md` + a machine summary (`python -m scripts.generate_network_config_report`)
+- **Dashboard-ready JSON exports** (`dashboard_export.py`): flat, stable, frontend-friendly views (`dashboard_summary`, `inventory_view`, `topology_view`, `findings_view`, `remediation_view`, `action_audit_view`, `risk_timeline`, `device_health_cards`, `export_metadata`, plus diff/verification views) for a future monitoring UI — read-only, no recomputation (`python -m scripts.export_network_config_dashboard`)
+- **Optional Batfish validation adapter** (`batfish_adapter.py`): cross-checks saved configs against the Batfish model for external validation evidence — **disabled by default**, `pybatfish` imported lazily, no Docker/pybatfish required to run or test (`python -m scripts.run_batfish_validation`)
+- **Live device access and command execution are not implemented** — Engine C is offline and read-only by design; remediation is plans-only. A static audit (`python -m scripts.validate_engine_c_safety`) enforces no live-device libraries or unsafe config defaults. See `docs/engine_c_network_config.md`, `docs/engine_c_safety_audit.md` and `docs/engine_c_integration_handoff.md`
 
 ### Software Quality
 
@@ -203,11 +209,15 @@ analysis are underway alongside it. Next up:
 - Extend explainability backends to LightGBM and the deep models
 - Engine B network-health prediction over SNMP telemetry (LSTM autoencoder,
   live polling)
-- Engine C enhancements on top of the offline pipeline (richer templates,
-  correlation with Engine A/B); live device access and command execution remain
-  intentionally out of scope
-- Correlation engine combining cyber, network-health and configuration signals
-- Monitoring dashboard
+- Correlation engine combining Engine A cyber alerts, Engine B network-health
+  anomalies and Engine C configuration findings into unified incidents
+- Monitoring dashboard consuming the Engine C dashboard JSON exports
+
+Engine C's offline configuration-intelligence pipeline is complete (parsing →
+inventory → topology → findings → dry-run remediation → dry-run execution/audit
+→ snapshot diff/verification → intelligence report → dashboard exports, plus an
+optional Batfish adapter). Live device access and command execution remain
+intentionally out of scope.
 
 ---
 
@@ -421,6 +431,35 @@ definitions in `configs/network_rules.yaml`; remediation templates in
 `configs/remediation.yaml`. Remediation is **dry-run only — no command is ever
 executed.** Missing inputs are reported and skipped.
 
+The rest of the Engine C pipeline reads those artifacts (never recomputing or
+mutating them) and is offline/read-only:
+
+```bash
+# Dry-run validation of the remediation plan + append-only audit log
+python -m scripts.dry_run_network_actions --snapshot-id sample_offline
+
+# Diff two snapshots and verify remediation goals from the after-state
+python -m scripts.compare_network_snapshots --before sample_before --after sample_after
+
+# Consolidated operator intelligence report (risk, root-cause, action items)
+python -m scripts.generate_network_config_report --snapshot-id sample_remediation
+
+# Dashboard-ready JSON views under outputs/network_config/<id>/dashboard/
+python -m scripts.export_network_config_dashboard --snapshot-id sample_remediation
+
+# Optional external Batfish validation (disabled by default; exits cleanly)
+python -m scripts.run_batfish_validation --snapshot-id sample_remediation
+
+# Static safety audit: no live-device libraries, safe config defaults
+python -m scripts.validate_engine_c_safety
+```
+
+**Live device access and command execution are not implemented** — Engine C is
+offline and read-only by design; remediation is plans-only. See
+`docs/engine_c_network_config.md` for the full workflow, `docs/engine_c_safety_audit.md`
+for the safety model, and `docs/engine_c_integration_handoff.md` for how the
+dashboard and correlation layers can consume the outputs.
+
 Run the test suite:
 
 ```bash
@@ -462,11 +501,12 @@ NIMS is built around the following principles:
   dataset adapters, telemetry validation, chronological preprocessing, health
   features, Isolation Forest baseline; LSTM autoencoder and live SNMP polling
   next)
-- 🚧 Engine C network configuration intelligence (offline, read-only:
+- ✅ Engine C network configuration intelligence (offline, read-only:
   command-output parsing, typed inventory, LLDP/CDP/MAC/STP topology, a
-  YAML-driven rule engine producing structured findings and a dry-run
-  remediation plan generator; live device access and execution deliberately
-  out of scope)
+  YAML-driven rule engine, dry-run remediation plans, a dry-run executor with
+  audit logging, snapshot diff + verification, a consolidated intelligence
+  report, dashboard JSON exports, and an optional Batfish adapter; live device
+  access and command execution are not implemented — out of scope by design)
 - ⏳ Correlation engine (cyber + network health + configuration)
 - ⏳ Real-time monitoring dashboard
 - ⏳ Docker / deployment hardening
@@ -477,7 +517,7 @@ NIMS is built around the following principles:
 
 **Current Development Stage:** Serving & Network-Health Expansion
 
-The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. Engine B (network-health prediction over SNMP telemetry) has a working foundation with dataset adapters, and Engine C has an offline, read-only network-configuration pipeline: command-output parsing to a structured inventory, a derived LLDP/CDP/MAC/STP topology, a YAML-driven rule engine that emits structured configuration findings and a dry-run remediation plan generator (plans only — no command is executed). The next milestones extend both engines — network-health LSTM modeling and Engine C's configuration rule engine and remediation planning — ahead of the correlation engine and monitoring dashboard.
+The intrusion-detection stack is complete end-to-end. All seven models are benchmarked on NSL-KDD, UNSW-NB15 and CICIDS2017 (trained manually on local hardware), with XGBoost promoted as the production model for every dataset through the file-based model registry. Each completed experiment carries SHAP explanations, per-class error analysis and rendered visualizations, and the FastAPI service performs batch inference by replaying the saved preprocessing and feature-engineering transforms — validated against raw UNSW-NB15 samples. Engine B (network-health prediction over SNMP telemetry) has a working foundation with dataset adapters, and Engine C's offline, read-only network-configuration pipeline is complete: command-output parsing to a structured inventory, a derived LLDP/CDP/MAC/STP topology, a YAML-driven rule engine, dry-run remediation plans, a dry-run executor with audit logging, snapshot diff + remediation verification, a consolidated intelligence report, dashboard-ready JSON exports, and an optional Batfish validation adapter — all offline and read-only, with live device access and command execution intentionally not implemented. The next milestones are the correlation engine (combining cyber, network-health and configuration signals) and the monitoring dashboard, alongside network-health LSTM modeling.
 
 ---
 
