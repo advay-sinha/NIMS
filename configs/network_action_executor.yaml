@@ -1,0 +1,32 @@
+# =============================================================================
+# NetSentinel — Engine C Dry-Run Action Executor (Phase 5)
+# =============================================================================
+#
+# DRY-RUN ONLY. This executor reads a Phase 4 remediation_plan.json and
+# *validates* each planned action, recording what would be done. It NEVER
+# connects to a device, NEVER opens a network connection and NEVER executes a
+# command. Every produced record has executed=false and would_execute=false.
+#
+# Live execution is intentionally impossible in this phase: allow_live_execution
+# has no code path and is documented here only to make the posture explicit.
+#
+# =============================================================================
+
+global:
+  enabled: true
+  mode: dry_run
+  allow_live_execution: false
+  require_confirmation: true
+  require_rollback: true
+  require_verification: true
+  audit_enabled: true
+  default_operator: offline_dry_run
+
+safety:
+  # Investigation-only actions must never carry config-changing commands.
+  block_config_commands_in_investigation_actions: true
+  # Command-bearing actions must carry a rollback and a verification step.
+  block_if_missing_rollback: true
+  block_if_missing_verification: true
+  # Any action not explicitly marked dry-run only is blocked.
+  block_if_not_dry_run: true

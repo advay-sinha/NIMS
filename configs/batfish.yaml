@@ -1,0 +1,39 @@
+# =============================================================================
+# NetSentinel — Engine C Optional Batfish Validation Adapter (Phase 8)
+# =============================================================================
+#
+# OPTIONAL and DISABLED BY DEFAULT. Batfish cross-checks saved device configs
+# against an external configuration model and enriches Engine C with external
+# validation evidence. It never replaces the offline parsers, topology builder,
+# rule engine, remediation planner or reports, and never accesses a live device
+# or executes a command.
+#
+# The whole project runs without Docker, Batfish or pybatfish installed. When
+# enabled but unavailable, the adapter records a clear "skipped" status and does
+# not crash Engine C unless fail_if_unavailable is true.
+#
+# =============================================================================
+
+global:
+  enabled: false
+  fail_if_unavailable: false
+
+connection:
+  host: localhost
+  port: 9997
+  network_name: nims_engine_c
+  snapshot_name_prefix: nims_snapshot
+
+inputs:
+  snapshot_root: datasets/samples/network_config/batfish_snapshot
+  configs_subdir: configs
+
+questions:
+  parse_status: true
+  node_properties: true
+  interface_properties: true
+  l3_edges: true
+  undefined_references: true
+
+outputs:
+  write_raw_tables: true

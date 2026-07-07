@@ -59,6 +59,14 @@ network_config:
     enabled: true
     config_path: configs/remediation.yaml
 
+  # Phase 5 dry-run action executor. NOT run automatically by
+  # analyze_network_config — use scripts/dry_run_network_actions.py. Reads the
+  # Phase 4 remediation_plan.json and validates actions; DRY-RUN ONLY, no
+  # command is ever executed. Config lives in a standalone file.
+  action_executor:
+    enabled: true
+    config_path: configs/network_action_executor.yaml
+
   # Safety posture (documented invariant for this phase). Live access and
   # remediation are disabled by design and have no code path in Phase 1/2.
   safety:

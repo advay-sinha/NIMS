@@ -188,6 +188,33 @@ def _remediation_section(rem: dict[str, Any]) -> list[str]:
     return lines
 
 
+def execution_report_section(summary: dict[str, Any]) -> list[str]:
+    """Render the Phase 5 dry-run execution summary section (append-only).
+
+    Public because the dry-run executor appends this to an existing
+    ``network_config_report.md`` after the inventory/remediation report is
+    already written.
+    """
+    return [
+        "## Dry-run execution (Phase 5)",
+        "",
+        "> **No commands were executed.** Every action was validated in "
+        "dry-run mode only; nothing was applied to any device.",
+        "",
+        "| Metric | Value |",
+        "|---|---|",
+        f"| Total actions processed | {summary['total_actions']} |",
+        f"| Validated actions | {summary['validated_actions']} |",
+        f"| Blocked actions | {summary['blocked_actions']} |",
+        f"| Skipped actions | {summary['skipped_actions']} |",
+        f"| Failed actions | {summary['failed_actions']} |",
+        f"| Execution mode | {summary['execution_mode']} |",
+        f"| Executed | {summary['executed']} |",
+        f"| Operator | {summary['operator']} |",
+        f"| Audit log | `{summary.get('audit_log_path', '')}` |",
+    ]
+
+
 def _count_table(counts: dict[str, int], label: str) -> list[str]:
     """Render a ``{key: count}`` mapping as a small Markdown table."""
     if not counts:
