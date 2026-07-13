@@ -1,0 +1,19 @@
+{
+  "name": "netsentinel-api",
+  "version": "1.0.0",
+  "description": "Read-only artefact API server for the NetSentinel web frontend.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "yaml": "^2.6.1"
+  }
+}
