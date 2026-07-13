@@ -1,0 +1,31 @@
+# NetSentinel — Monitoring Dashboard (Phase 10) configuration
+#
+# Drives the offline, read-only Streamlit dashboard prototype. The dashboard
+# only reads persisted artefacts (Engine A/B/C exports and correlation output).
+# It never runs an engine pipeline, trains, infers, polls SNMP, captures
+# packets, contacts a device or executes a command.
+
+dashboard:
+  enabled: true
+  default_engine_c_snapshot: sample_remediation
+  default_correlation_id: sample_correlation
+  refresh_mode: manual
+  auto_refresh_seconds: null
+
+# Section toggles — a disabled section is simply not rendered.
+sections:
+  executive: true          # assessor-focused Executive Overview (shown first)
+  live_monitor: true       # offline streaming demo current-state
+  overview: true           # detailed cross-engine metrics
+  incidents: true
+  ml_workflow: true        # offline Engine A workflow command builder (read-only)
+  engine_a: true
+  engine_b: true
+  engine_c: true
+  topology: true
+  remediation: true
+  safety: true
+
+safety:
+  show_no_execution_banner: true
+  allow_actions: false            # the dashboard is a viewer, never an actuator

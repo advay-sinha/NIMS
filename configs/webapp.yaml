@@ -1,0 +1,35 @@
+# NetSentinel — Web Application (React/Node) configuration
+#
+# Drives the read-only web frontend (webapp/). The Node API server only reads
+# persisted artefacts (Engine A/B/C exports, correlation output, streaming
+# demo state). It never trains, infers, polls SNMP, captures packets,
+# contacts a device or executes a command.
+
+server:
+  host: 127.0.0.1
+  port: 8050
+  # Seconds an artefact read may be served from the in-process cache before
+  # the loader re-reads it from disk. Keeps the UI snappy without watching
+  # the filesystem.
+  cache_seconds: 5
+
+frontend:
+  # Vite dev-server port; the dev server proxies /api to the Node server.
+  dev_port: 5175
+
+# Section toggles — a disabled section is not served by /api/meta and the
+# frontend hides it from navigation.
+sections:
+  overview: true          # landing page — cross-engine executive summary
+  live: true              # offline streaming demo current-state monitor
+  training: true          # training / testing / validation explorer
+  engine_a: true          # cyber intrusion detection
+  engine_b: true          # network health prediction
+  engine_c: true          # network configuration intelligence
+  correlation: true       # cross-engine incident correlation
+  history: true           # past runs, snapshots and event history
+  safety: true            # safety posture and guarantees
+
+safety:
+  show_no_execution_banner: true
+  allow_actions: false    # the webapp is a viewer, never an actuator

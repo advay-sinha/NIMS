@@ -27,3 +27,8 @@ data/metadata/
 
 # Keep empty stage dirs tracked
 !**/.gitkeep
+
+# Web frontend (Node) — dependencies and build output are regenerated.
+webapp/server/node_modules/
+webapp/frontend/node_modules/
+webapp/frontend/dist/

@@ -1,0 +1,45 @@
+# NetSentinel — Real-Time / Streaming Monitoring (Phase 11) configuration
+#
+# A SAFE, OFFLINE demo streaming layer. It replays already-persisted artefacts
+# (Engine A/B/C findings and correlation incidents) into a unified event stream
+# and maintains a live-updating monitoring state.
+#
+# This layer NEVER contacts a device, opens SSH, polls SNMP, captures packets,
+# runs an engine pipeline or executes a remediation command. Every input and
+# output is a local file. The `safety` flags below are all false and there is no
+# code path that honours a true value.
+
+streaming:
+  enabled: true
+  mode: demo_replay
+  tick_seconds: 1.0
+  max_events: null
+  loop: false
+  output_dir: outputs/streaming
+  current_state_dir: outputs/streaming/current
+  event_log_path: outputs/streaming/events.jsonl
+
+safety:
+  offline_only: true
+  allow_live_sources: false
+  allow_device_access: false
+  allow_packet_capture: false
+  allow_remediation_execution: false
+
+sources:
+  correlation:
+    enabled: true
+    default_correlation_id: sample_correlation
+  engine_c:
+    enabled: true
+    default_snapshot_id: sample_remediation
+  engine_b:
+    enabled: true
+    dataset: synthetic
+  engine_a:
+    enabled: true
+    dataset: unsw_nb15
+
+dashboard:
+  write_current_state: true
+  write_summary: true

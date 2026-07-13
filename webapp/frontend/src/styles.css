@@ -1,0 +1,676 @@
+/* NetSentinel operations-room theme.
+ *
+ * Direction: air-traffic operations console for airport network
+ * infrastructure. Chrome is a blue-tinted tarmac dark (daylight tower in
+ * light mode); the signature element is the ATC flight-strip treatment on
+ * incidents, findings and the status board — a solid severity edge-strip
+ * like a strip holder in a bay. Type: IBM Plex Sans Condensed (display),
+ * IBM Plex Sans (body), IBM Plex Mono (data/ids).
+ *
+ * Chart marks keep the validated dataviz palette: categorical slots
+ * identify engines in fixed order; the status palette is reserved for
+ * severity and always paired with a text label. Both modes are selected
+ * palettes validated against these surfaces, not automatic flips. */
+
+:root,
+:root[data-theme="light"] {
+  --page: #f2f4f6;
+  --surface: #ffffff;
+  --surface-2: #e9edf0;
+  --ink: #131a20;
+  --ink-2: #4d5860;
+  --muted: #7d8791;
+  --grid: #dde2e7;
+  --baseline: #b9c2ca;
+  --border: rgba(19, 26, 32, 0.12);
+
+  --engine-a: #2a78d6;
+  --engine-b: #1baf7a;
+  --engine-c: #eda100;
+  --correlation: #008300;
+  --system: #4a3aa7;
+
+  --sev-critical: #d03b3b;
+  --sev-high: #ec835a;
+  --sev-medium: #fab219;
+  --sev-low: #0ca30c;
+  --sev-info: #7d8791;
+
+  --status-good: #006300;
+  --accent: #2a78d6;
+  --accent-soft: rgba(42, 120, 214, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #10151b;
+    --surface: #1a222b;
+    --surface-2: #232d38;
+    --ink: #f2f5f7;
+    --ink-2: #aeb9c2;
+    --muted: #75828d;
+    --grid: #2a333d;
+    --baseline: #3a4550;
+    --border: rgba(242, 245, 247, 0.1);
+
+    --engine-a: #3987e5;
+    --engine-b: #199e70;
+    --engine-c: #c98500;
+    --correlation: #008300;
+    --system: #9085e9;
+
+    --sev-info: #75828d;
+    --status-good: #0ca30c;
+    --accent: #3987e5;
+    --accent-soft: rgba(57, 135, 229, 0.14);
+  }
+}
+
+:root[data-theme="dark"] {
+  --page: #10151b;
+  --surface: #1a222b;
+  --surface-2: #232d38;
+  --ink: #f2f5f7;
+  --ink-2: #aeb9c2;
+  --muted: #75828d;
+  --grid: #2a333d;
+  --baseline: #3a4550;
+  --border: rgba(242, 245, 247, 0.1);
+
+  --engine-a: #3987e5;
+  --engine-b: #199e70;
+  --engine-c: #c98500;
+  --correlation: #008300;
+  --system: #9085e9;
+
+  --sev-info: #75828d;
+  --status-good: #0ca30c;
+  --accent: #3987e5;
+  --accent-soft: rgba(57, 135, 229, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Type roles. Display = condensed signage caps; mono = telemetry/ids. */
+.display {
+  font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  font-size: 12.5px;
+}
+
+/* Eyebrow designator — encodes the section taxonomy (OPS, LIVE, TRN…). */
+.eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.eyebrow b {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------- app layout */
+
+.app {
+  display: grid;
+  grid-template-columns: 236px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  padding: 18px 12px 14px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 10px 14px;
+}
+
+.brand small {
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  margin-top: 3px;
+}
+
+.nav-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
+}
+
+.nav-button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.nav-button.active {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.nav-code {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  width: 44px;
+  flex: none;
+}
+
+.nav-button.active .nav-code {
+  color: var(--accent);
+}
+
+.nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.readonly-pill {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--status-good);
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 4px 10px;
+  text-align: center;
+}
+
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.main {
+  padding: 26px 34px 64px;
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- section */
+
+.section-header {
+  margin: 2px 0 6px;
+}
+
+.section-header h1 {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin: 2px 0 0;
+}
+
+.section-sub {
+  color: var(--ink-2);
+  max-width: 78ch;
+  margin: 6px 0 14px;
+}
+
+.feature-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 22px;
+}
+
+.chip {
+  position: relative;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 9px;
+  cursor: help;
+}
+
+.chip:hover,
+.chip:focus-visible {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+/* hover tooltip bubble */
+.hover-tip {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 8px);
+  left: 0;
+  width: max-content;
+  max-width: 320px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  padding: 10px 12px;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.45;
+  white-space: normal;
+  text-transform: none;
+  pointer-events: none;
+}
+
+.hover-tip strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.info-hover {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: help;
+  vertical-align: middle;
+  margin-left: 6px;
+  flex: none;
+}
+
+.info-hover:hover,
+.info-hover:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ cards */
+
+.grid {
+  display: grid;
+  gap: 14px;
+}
+
+.grid.tiles {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.grid.cols-2 {
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 0;
+}
+
+.card h3 {
+  margin: 0 0 10px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.stat-value {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.stat-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* ---------------------------------------------------------- flight strips */
+
+/* The signature: a strip-holder edge. Solid severity bar on the left,
+ * like a paper flight strip seated in its bay. */
+.strip {
+  border-left: 6px solid var(--baseline);
+  border-radius: 4px 8px 8px 4px;
+}
+
+.strip.sev-critical { border-left-color: var(--sev-critical); }
+.strip.sev-high     { border-left-color: var(--sev-high); }
+.strip.sev-medium   { border-left-color: var(--sev-medium); }
+.strip.sev-low      { border-left-color: var(--sev-low); }
+.strip.sev-info     { border-left-color: var(--sev-info); }
+.strip.sev-good     { border-left-color: var(--status-good); }
+.strip.sev-accent   { border-left-color: var(--accent); }
+
+.status-banner {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.status-banner .status-word {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.status-banner .status-detail {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.status-banner .status-meta {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+/* ------------------------------------------------------------------ badges */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  border-radius: 3px;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ charts */
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.bar-label {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.bar-track {
+  position: relative;
+  height: 18px;
+  background: transparent;
+  border-left: 1px solid var(--baseline);
+}
+
+.bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 0 4px 4px 0;
+  min-width: 2px;
+  transition: width 0.25s ease;
+}
+
+.bar-row:hover .bar-fill {
+  filter: brightness(1.15);
+}
+
+.bar-value {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  color: var(--ink);
+}
+
+.chart-note {
+  color: var(--muted);
+  font-size: 11.5px;
+  margin-top: 8px;
+}
+
+/* ------------------------------------------------------------------ tables */
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  text-align: left;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--baseline);
+  white-space: nowrap;
+}
+
+td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--grid);
+  vertical-align: top;
+}
+
+td.num {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+  text-align: right;
+}
+
+th.num {
+  text-align: right;
+}
+
+tbody tr:hover {
+  background: var(--surface-2);
+}
+
+/* ------------------------------------------------------------- empty state */
+
+.empty {
+  border: 1px dashed var(--baseline);
+  border-radius: 8px;
+  padding: 22px;
+  color: var(--ink-2);
+}
+
+.empty code {
+  display: inline-block;
+  margin-top: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------- misc */
+
+.muted {
+  color: var(--muted);
+}
+
+.list-plain {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.list-plain li {
+  margin: 4px 0;
+}
+
+.overview-directory a {
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.overview-directory a:hover {
+  text-decoration: underline;
+}
+
+.select-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  flex-wrap: wrap;
+}
+
+.select-row select {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font: inherit;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+}
+
+pre.report {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+h2 {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .sidebar-footer {
+    margin-top: 0;
+  }
+  .main {
+    padding: 16px;
+  }
+}

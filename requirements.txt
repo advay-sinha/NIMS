@@ -50,3 +50,6 @@ httpx
 
 # Experiment Tracking
 tensorboard
+
+# Dashboard
+streamlit

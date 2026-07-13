@@ -193,6 +193,24 @@ The architecture is designed to support additional intrusion detection datasets 
 - **Unified incident artefacts**: `signals.json/csv`, `incidents.json/csv`, `correlation_summary.json` and an operator `correlation_report.md` (`python -m scripts.run_correlation`)
 - **Offline and artefact-driven only** — it never runs an engine pipeline, captures packets, polls SNMP, contacts a device or executes a command; aggregate signals are flagged and down-weighted so they never masquerade as per-flow alerts
 
+### Web Console (React / Node)
+
+- **Interactive web frontend** (`webapp/`): a React (Vite) single-page console backed by a Node/Express artefact API. The landing page is an assessor-focused **Executive Overview** (network status, incident roll-up, root causes, recommended actions) plus a directory of every section; dedicated sections cover **Live Monitoring** (streaming demo state, event feeds, severity/engine distributions), **Training · Testing · Validation** (experiment explorer with dataset/model filters, best-run matrix, per-split metrics, validation and feature reports), **Engine A** (production registry with test metrics and artefact links), **Engine B** (latest health experiments and anomaly rates), **Engine C** (snapshot picker, findings, interface inventory, topology graph, device health, dry-run remediation plan), **Correlation** (incident cards with evidence trails and signals), **History** (assessment runs, incident runs, event log) and **Safety** (guarantees plus dry-run audit evidence)
+- **Self-describing UI** — every section header carries hover chips that explain each feature's workings, and individual widgets add small "?" hovers; light and dark themes ship with a validated, colorblind-safe chart palette where severity uses a reserved status palette and each engine keeps a fixed color slot
+- **Read-only API** (`webapp/server/`): Express routes under `/api` mirror the Python dashboard loaders — they only read persisted artefacts (registry, experiments, network-health runs, Engine C dashboard exports, correlation runs, streaming state), resolve every path through `configs/paths.yaml`, and are configured by `configs/webapp.yaml`; missing artefacts return the exact command to generate them
+
+### Monitoring Dashboard (Offline Prototype)
+
+- **Streamlit dashboard prototype** (`src/dashboard/`): a thin, read-only viewer that consumes the artefacts already produced by Engine A/B/C and the correlation engine and presents an assessor-focused **Executive Overview** (network status, critical incidents, affected devices, likely root causes, recommended actions, safety status), correlated incidents (with severity/rule filters and per-incident detail), Engine C findings/remediation/dry-run status, a visual topology **mesh** plus tables, Engine B network-health metrics, Engine A production models, and a safety/audit page. Runs are chosen by friendly, timestamped **Assessment Run** / **Incident Run** labels (defaulting to the latest), with raw ids/paths tucked into an *Advanced Artifact Sources* expander
+- **Streamlit is optional** — the loader and formatting logic carry no Streamlit dependency and the test-suite runs without it; `python -m scripts.run_dashboard` launches the app when Streamlit is installed and otherwise prints install/run instructions and exits non-zero
+- **Read-only by design** — the dashboard never runs a pipeline, trains, infers, polls SNMP, captures packets, contacts a device, executes a command or mutates any artefact; every page carries an offline / no-execution banner. Missing artefacts show the exact command to generate them rather than crashing
+
+### Real-Time Monitoring Foundation (Offline Demo)
+
+- **Safe streaming layer** (`src/streaming/`): replays the already-persisted Engine A/B/C and correlation artefacts into a unified `StreamEvent` stream, maintains an in-memory monitoring state, writes an append-only event log (`outputs/streaming/events.jsonl`) and exposes read-only current-state artefacts the dashboard's **Live Monitor** tab polls
+- **Demo/replay only** — it never contacts a device, opens SSH, polls SNMP, captures packets, runs an engine pipeline or executes a remediation command; every input and output is a local file. All `safety.allow_*` flags in `configs/streaming.yaml` are false and there is no code path that honours a true value (`python -m scripts.run_streaming_demo`)
+- **Offline ML workflow console** (`src/ml_workflow/` + `scripts/run_offline_ml_workflow.py`): selects datasets/models/steps and maps them onto the existing **offline** Engine A entry points (validate → audit → preprocess → features → train → reports → explainability/error-analysis/visualizations → registry → promote → resolve); `--dry-run` prints the exact commands, and the dashboard's read-only **ML Workflow** tab builds the command to run in a terminal (it never executes). Offline Engine A datasets/models only — no live devices, traffic, SNMP, SSH, packet capture or remediation
+
 ### Software Quality
 
 - Unit testing
@@ -278,6 +296,9 @@ NIMS/
 │   ├── network_health/ # Engine B telemetry: adapters, validation, features, baseline
 │   ├── network_config/ # Engine C offline config parsing, inventory, reporting
 │   └── utils/          # config, paths, hardware, io, logging, seed
+├── webapp/
+│   ├── server/         # Node/Express read-only artefact API (/api)
+│   └── frontend/       # React (Vite) console: overview, live monitor, engines, history, safety
 ├── tests/
 ├── pyproject.toml
 └── README.md
@@ -469,7 +490,42 @@ python -m scripts.run_correlation \
   --engine-b-dataset synthetic \
   --engine-a-dataset unsw_nb15 \
   --correlation-id sample_correlation
+
+# Replay artefacts into the offline live-monitoring demo (safe, no devices)
+python -m scripts.run_streaming_demo --no-sleep
+
+# Build an offline Engine A workflow command (inspect first with --dry-run)
+python -m scripts.run_offline_ml_workflow --dataset unsw_nb15 --model xgboost --dry-run
+
+# Launch the offline monitoring dashboard (Streamlit optional)
+python -m scripts.run_dashboard
+# or, equivalently:
+streamlit run src/dashboard/app.py
 ```
+
+Launch the web console (React frontend + Node artefact API):
+
+```bash
+# One-time dependency install
+cd webapp/server   && npm install
+cd webapp/frontend && npm install
+
+# Terminal 1 — artefact API on http://127.0.0.1:8050 (configs/webapp.yaml)
+cd webapp/server && npm start
+
+# Terminal 2 — frontend dev server on http://127.0.0.1:5175 (proxies /api)
+cd webapp/frontend && npm run dev
+
+# Production mode: build once, then the API server serves the frontend itself
+cd webapp/frontend && npm run build   # then open http://127.0.0.1:8050
+```
+
+The dashboard is an offline, read-only viewer over the artefacts above. It never
+runs a pipeline, contacts a device or executes/remediates anything. It needs the
+Engine C dashboard exports and a correlation run to have been generated first
+(the two commands above); when an artefact is missing it shows the exact command
+to produce it. Streamlit is optional — the launcher prints install instructions
+if it is not present, and the test-suite does not require it.
 
 **Live device access and command execution are not implemented** — Engine C is
 offline and read-only by design; remediation is plans-only. See
@@ -526,7 +582,11 @@ NIMS is built around the following principles:
   access and command execution are not implemented — out of scope by design)
 - ✅ Correlation engine (cyber + network health + configuration → unified
   incidents; offline, artefact-driven, no execution)
-- ⏳ Real-time monitoring dashboard
+- ✅ Monitoring dashboard prototype (offline Streamlit viewer over the engine
+  and correlation artefacts; read-only, Streamlit optional)
+- ✅ Real-time / streaming foundation (safe offline demo replay + live-monitor
+  state; offline ML workflow console)
+- ⏳ Deployment / packaging
 - ⏳ Docker / deployment hardening
 
 ---
