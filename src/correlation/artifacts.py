@@ -28,14 +28,17 @@ from src.correlation.reporting import build_report
 logger = logging.getLogger(__name__)
 
 _SIGNAL_FIELDS = [
-    "signal_id", "engine", "source_artifact", "category", "severity",
-    "confidence", "title", "description", "raw_reference", "timestamp",
-    "device", "interface", "src_ip", "dst_ip", "vlan", "aggregate", "tags",
+    "signal_id", "engine", "source_artifact", "category", "source_type",
+    "severity", "confidence", "confidence_label", "title", "description",
+    "raw_reference", "timestamp", "time_start", "time_end", "device",
+    "interface", "src_ip", "dst_ip", "vlan", "mac", "event_count",
+    "clock_unreliable", "entity_confident", "aggregate", "tags",
 ]
 _INCIDENT_FIELDS = [
     "incident_id", "rule_id", "title", "severity", "confidence", "status",
     "engines", "multi_engine", "aggregate_only", "affected_devices",
     "affected_interfaces", "related_vlans", "related_ips", "signal_count",
+    "syslog_signal_count", "time_reliability", "entity_match_confidence",
     "root_cause_hypothesis", "tags",
 ]
 

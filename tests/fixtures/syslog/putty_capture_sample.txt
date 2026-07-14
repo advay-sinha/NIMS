@@ -1,0 +1,15 @@
+=~=~=~=~=~=~=~=~=~=~=~= PuTTY log 2026.07.13 15:44:14 =~=~=~=~=~=~=~=~=~=~=~=
+sh logg
+TERM-LW-AAI-IR9-SW1#sh logging 
+Logging source configurations
+  console is enabled,level: 7(debugging)
+The Context of logging file:
+[0m[1;37mSep  8 2025 16:33:15 TERM-LW-AAI-IR9-SW1 MPU0 %TELNET-LOGOUT_OK-5:Telnet(vty0) is closed by client or timer (192.168.100.1) OK.[0m
+[0m[1;33mSep  9 2025 05:08:41 TERM-LW-AAI-IR9-SW1 MPU0 %SNMP-COMMUNITY_AUTHOR_FAILED-3:Community public authentication failed.[0m
+---MORE---             [0m[1;33mSep 14 2025 05:08:51 TERM-LW-AAI-IR9-SW1 MPU0 %SNMP-USER_AUTH_FAILED-3:User belden authentication failed.[0m
+[0m[1;36mSep 21 2025 09:11:06 TERM-LW-AAI-IR9-SW1 MPU0 %ERPS-RING_STAT_CHG-4:The state of ERPS ring 7 was changed to Protection from Idle.[0m
+[0m[1;36mSep 22 2025 00:20:45 switch MPU0 %ERPS-RING_PORT_BLK-4:The state of ERPS port tengigabitethernet0/27 was changed to blocking on ring 7.[0m
+[0m[1;37mJan  1 1970 00:00:15 switch %DCM-PROCESS_START-5:Process sysmgmtaddr is starting...[0m
+[0m[1;37mSep 21 2025 18:49:35 switch MPU0 %SYSMGMT-FAN_ONLINE-5:Fan 1 was inserted.[0m
+[0m[1;33mOct 28 2025 14:38:31 TERM-LW-AAI-IR9-SW1 MPU0 %FDB-MAC_ADDR_FLAPPING_VLAN-5:Mac address 0060.2b01.362e in vlan 132 has moved from port  to port interface tengigabitethernet0/28 for 100 times.[0m
+

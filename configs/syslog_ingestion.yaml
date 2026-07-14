@@ -1,0 +1,49 @@
+# NetSentinel — Industrial Switch Syslog Ingestion (Phase 12) configuration
+#
+# A SAFE, OFFLINE ingestion layer. It parses *saved* Belden/DCN-style industrial
+# switch syslog files (raw syslog exports and PuTTY terminal captures) into
+# structured events, Engine B time-window features and Engine C findings.
+#
+# This layer NEVER contacts a device, opens SSH/telnet, polls SNMP, captures
+# packets, runs an engine pipeline or executes a remediation command. Every
+# input is a local file; every output is a local artefact. The `safety` flags
+# below are all read-only and there is no code path that honours a true value
+# for the *_execution / device-access flags.
+
+syslog_ingestion:
+  default_timezone: Asia/Kolkata          # logs carry no explicit timezone
+  drop_clock_unreliable_from_features: true  # exclude Jan 1 1970 boot-clock lines
+  deduplicate_exact_repeats: true
+  default_window_minutes: 5
+  additional_window_minutes: [15]
+  output_dir: outputs/syslog_ingestion
+
+preprocessing:
+  strip_ansi: true
+  capture_ansi_color_hint: true
+  drop_pager_noise: true
+  drop_prompt_echo: true
+
+thresholds:
+  port_flaps_per_hour_warning: 3
+  port_flaps_per_hour_high: 6
+  mac_moves_warning: 20
+  mac_moves_high: 100
+  snmp_auth_fail_warning_per_5min: 5
+  snmp_auth_fail_high_per_5min: 20
+  erps_events_warning_per_hour: 3
+  poe_fault_high: true
+
+splitting:
+  strategy: chronological
+  train_ratio: 0.70
+  validation_ratio: 0.15
+  test_ratio: 0.15
+  host_holdout: null                       # set to a hostname to hold it out for test
+
+safety:
+  offline_only: true
+  allow_live_sources: false
+  allow_device_access: false
+  allow_packet_capture: false
+  allow_remediation_execution: false

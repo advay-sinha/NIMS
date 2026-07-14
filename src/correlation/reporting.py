@@ -14,6 +14,7 @@ from src.correlation.models import (
     ENGINE_A,
     ENGINE_B,
     ENGINE_C,
+    SYSLOG,
     CorrelatedIncident,
 )
 from src.correlation.rules import SINGLE_ENGINE_HIGH_RISK
@@ -44,7 +45,9 @@ def build_report(result: CorrelationResult) -> str:
     lines += _executive_summary(result)
     lines += _inputs_section(result)
     lines += _signal_summary(result)
+    lines += _syslog_overview(result)
     lines += _incidents_section(result)
+    lines += _time_reliability_section(result)
     lines += _multi_engine_section(result)
     lines += _single_engine_section(result)
     lines += _hypotheses_section(result)
@@ -89,10 +92,60 @@ def _signal_summary(result: CorrelationResult) -> list[str]:
     s = result.summary
     lines = ["## Signal Summary", "",
              "| Engine | Signals |", "|---|---|"]
-    for engine, label in ((ENGINE_A, "Engine A"), (ENGINE_B, "Engine B"),
-                          (ENGINE_C, "Engine C")):
+    rows = [(ENGINE_A, "Engine A"), (ENGINE_B, "Engine B"), (ENGINE_C, "Engine C")]
+    if SYSLOG in s.signals_by_engine:
+        rows.append((SYSLOG, "Syslog"))
+    for engine, label in rows:
         lines.append(f"| {label} | {s.signals_by_engine.get(engine, 0)} |")
     lines.append("")
+    return lines
+
+
+def _syslog_overview(result: CorrelationResult) -> list[str]:
+    """Aggregated syslog evidence overview (top-N, never raw event dumps)."""
+    s = result.summary
+    if not s.syslog_signals_loaded and not s.syslog_source:
+        return []
+    from collections import Counter
+    syslog_sigs = [sig for sig in result.signals if sig.engine == SYSLOG]
+    by_type = Counter(sig.source_type or "unknown" for sig in syslog_sigs)
+    lines = [
+        "## Syslog Evidence Overview", "",
+        f"- Source run: `{s.syslog_source or 'n/a'}`",
+        f"- Signals loaded: **{s.syslog_signals_loaded}** from "
+        f"**{s.syslog_findings_loaded}** finding(s); "
+        f"~{s.syslog_events_represented} event(s) represented.",
+        f"- Generic (unclassified) events: {s.generic_syslog_count}; "
+        f"unreliable-clock events: {s.clock_unreliable_count}.",
+        f"- Incidents citing syslog evidence: "
+        f"**{s.incidents_with_syslog_evidence}**.",
+        "",
+    ]
+    if by_type:
+        lines += ["| Syslog category | Signals |", "|---|---|"]
+        for source_type, count in sorted(by_type.items(),
+                                         key=lambda kv: (-kv[1], kv[0])):
+            lines.append(f"| {source_type} | {count} |")
+        lines.append("")
+    return lines
+
+
+def _time_reliability_section(result: CorrelationResult) -> list[str]:
+    """Flag incidents whose time correlation is approximate/unreliable."""
+    degraded = [i for i in result.incidents
+                if i.time_reliability != "reliable"]
+    lines = ["## Time Reliability Notes", ""]
+    if not result.summary.clock_unreliable_count and not degraded:
+        return lines + ["_All correlated evidence used reliable timestamps._", ""]
+    lines.append(
+        "Some device timestamps are unreliable (boot-clock / pre-NTP). Event "
+        "ordering and time-based cross-source correlation may be approximate.")
+    lines.append("")
+    if degraded:
+        lines += ["| Incident | Rule | Time reliability |", "|---|---|---|"]
+        for inc in degraded:
+            lines.append(f"| {inc.title} | {inc.rule_id} | {inc.time_reliability} |")
+        lines.append("")
     return lines
 
 
@@ -187,6 +240,13 @@ def _incident_detail(inc: CorrelatedIncident) -> list[str]:
         "- Evidence:",
     ]
     lines += [f"  - {e.summary}" for e in inc.evidence]
+    if inc.syslog_signal_count:
+        lines.append(f"- Syslog evidence: {inc.syslog_signal_count} signal(s); "
+                     f"entity match: {inc.entity_match_confidence}; "
+                     f"time reliability: {inc.time_reliability}")
+    if inc.evidence_quality_notes:
+        lines.append("- Evidence quality / alternatives:")
+        lines += [f"  - {note}" for note in inc.evidence_quality_notes]
     if inc.scoring_factors:
         lines.append(f"- Scoring: {', '.join(inc.scoring_factors)}")
     lines.append("")

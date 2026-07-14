@@ -1,0 +1,32 @@
+# NetSentinel — One-command offline full-demo preparation.
+#
+# Drives scripts/prepare_full_demo.py: it refreshes the Engine C assessment,
+# reuses (or conditionally trains) Engine A/B models, discovers/reuses syslog
+# artefacts, runs the unified correlation and streaming replay, and validates
+# that the read-only frontend can load every section.
+#
+# Strictly offline: the orchestrator executes only an approved allowlist of
+# local Python modules (argument arrays, never a shell string). It never opens
+# SSH/SNMP/syslog listeners, captures packets, contacts a device or executes
+# remediation, and never mutates raw datasets or source artefacts.
+
+demo:
+  engine_c_input_dir: datasets/samples/network_config
+  engine_c_snapshot: demo_assessment
+  engine_a_datasets:
+    - nsl_kdd
+    - unsw_nb15
+    - cicids2017
+  engine_a_model: xgboost
+  engine_b_dataset: synthetic
+  engine_b_model: isolation_forest
+  syslog_run: latest
+  correlation_id: demo_full_correlation
+  refresh_engine_c: true
+  conditional_training: true
+  launch_dashboard: false
+
+syslog:
+  # Optional local fixture ingested only when no syslog run exists. Never a
+  # device/listener — a saved file path only. Leave null to skip syslog cleanly.
+  fallback_fixture: null

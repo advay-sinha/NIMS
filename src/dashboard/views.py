@@ -24,11 +24,16 @@ def render_executive_overview(summary: dict[str, Any]) -> None:
     banner = {"attention": st.error, "monitor": st.warning}.get(level, st.success)
     banner(f"**Network status — {label}.** {status}")
 
+    if summary.get("clock_integrity_warning"):
+        st.warning("Some device timestamps are unreliable. Event ordering and "
+                   "time-based correlation may be approximate.")
+
     ui.metric_cards([
         ("Correlated incidents", summary.get("total_incidents", 0)),
         ("Critical / high", summary.get("critical_incident_count", 0)),
+        ("With syslog evidence", summary.get("incidents_with_syslog_evidence", 0)),
         ("Affected devices", len(summary.get("affected_devices", []))),
-    ], per_row=3)
+    ], per_row=4)
 
     st.markdown("**Critical incidents**")
     crit = summary.get("critical_incidents", [])
@@ -95,6 +100,14 @@ def render_incidents(correlation: dict[str, Any]) -> None:
         st.caption("No incidents in this correlation run.")
         return
 
+    if any(i.get("time_reliability", "reliable") != "reliable" for i in incidents):
+        st.warning("Some device timestamps are unreliable. Event ordering and "
+                   "time-based correlation may be approximate.")
+    with_syslog = sum(1 for i in incidents if i.get("syslog_signal_count", 0))
+    if with_syslog:
+        st.caption(f"{with_syslog} incident(s) include syslog evidence. "
+                   "No commands were executed.")
+
     severities = st.multiselect("Severity", fmt.unique_severities(incidents),
                                 default=fmt.unique_severities(incidents))
     rules = st.multiselect("Rule / source", fmt.unique_rules(incidents),
@@ -111,17 +124,30 @@ def render_incidents(correlation: dict[str, Any]) -> None:
                         f"**Engines:** {', '.join(inc.get('engines', []))}")
             st.markdown(f"**Root-cause hypothesis:** "
                         f"{inc.get('root_cause_hypothesis', 'n/a')}")
-            st.markdown("**Related signals:**")
-            ui.table([{"signal": s} for s in inc.get("signals", [])],
-                     empty_msg="No signals.")
+            if inc.get("syslog_signal_count"):
+                st.markdown(
+                    f"**Syslog evidence:** {inc.get('syslog_signal_count')} "
+                    f"signal(s) | **Entity match:** "
+                    f"{inc.get('entity_match_confidence', 'n/a')} | "
+                    f"**Time reliability:** {inc.get('time_reliability', 'n/a')}")
+            evidence = inc.get("evidence", [])
+            if evidence:
+                st.markdown("**Evidence by source:**")
+                for bundle in evidence:
+                    st.markdown(f"- {bundle.get('summary')}")
+            notes = inc.get("evidence_quality_notes", [])
+            if notes:
+                st.markdown("**Evidence quality / alternatives:**")
+                for note in notes:
+                    st.markdown(f"- {note}")
             st.markdown("**Recommended operator actions:**")
             for action in inc.get("recommended_actions", []):
                 st.markdown(
                     f"- **{action.get('title')}** ({action.get('owner')}): "
                     f"{action.get('detail')}")
-            notes = inc.get("safety_notes", [])
-            if notes:
-                st.info(" ".join(notes))
+            safety = inc.get("safety_notes", [])
+            if safety:
+                st.info(" ".join(safety))
 
 
 def render_engine_c(engine_c: dict[str, Any]) -> None:
@@ -210,6 +236,54 @@ def render_engine_b(engine_b: dict[str, Any]) -> None:
                    f"{ds.get('n_anomalous_predicted')}")
     if engine_b.get("report_path"):
         st.caption(f"Report: `{engine_b['report_path']}`")
+
+
+def render_syslog(syslog: dict[str, Any]) -> None:
+    """Read-only view of one industrial-switch syslog ingestion run."""
+    ui.section_title("Industrial Syslog",
+                     "Offline ingestion of saved switch logs (read-only).")
+    if not syslog.get("available"):
+        ui.missing_notice(syslog.get("message"))
+        return
+
+    summary = syslog.get("summary", {})
+    time_range = summary.get("time_range", {}) or {}
+    ui.metric_cards([
+        ("Parsed events", summary.get("parsed_events", 0)),
+        ("Weighted", summary.get("weighted_events", 0)),
+        ("Dropped noise", summary.get("dropped_lines", 0)),
+        ("Duplicates collapsed", summary.get("duplicate_lines_collapsed", 0)),
+        ("Hosts", len(summary.get("hosts", []))),
+    ], per_row=5)
+    st.caption(f"Time range: {time_range.get('first') or 'n/a'} → "
+               f"{time_range.get('last') or 'n/a'} | hosts: "
+               f"{', '.join(summary.get('hosts', [])) or 'n/a'}")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Events by severity**")
+        ui.counts_table(summary.get("severity_distribution", {}), "Severity")
+    with col2:
+        st.markdown("**Top mnemonics**")
+        ui.counts_table(summary.get("top_mnemonics", {}), "Code")
+
+    st.markdown("**Top facilities**")
+    ui.counts_table(summary.get("top_facilities", {}), "Facility")
+
+    weak = (syslog.get("weak_label_summary", {}) or {}).get("positive_windows", {})
+    st.markdown("**Engine B weak-label windows** (threshold heuristics)")
+    ui.counts_table(weak, "Weak label")
+
+    st.markdown("**Engine C findings**")
+    findings = syslog.get("findings", [])
+    ui.table([{k: f.get(k) for k in
+               ("severity", "rule_id", "device", "interface", "title")}
+              for f in findings], empty_msg="No syslog findings.")
+
+    if syslog.get("windows_csv_path"):
+        st.caption(f"Engine B windows: `{syslog['windows_csv_path']}`")
+    if syslog.get("report_path"):
+        st.caption(f"Report: `{syslog['report_path']}`")
 
 
 def render_engine_a(engine_a: dict[str, Any]) -> None:

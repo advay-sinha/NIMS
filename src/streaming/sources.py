@@ -201,5 +201,11 @@ def collect_events(config: dict[str, Any], dirs: dict[str, Any]
         events += events_from_engine_a(
             dirs["registry_dir"], dirs["reports_dir"], dirs["error_analysis_dir"],
             dirs["visualizations_dir"], dirs["experiments_dir"])
+    if _cfg(config, "sources.syslog.enabled", False):
+        run_id = _cfg(config, "sources.syslog.default_run_id", None)
+        syslog_dir = dirs.get("syslog_ingestion_dir")
+        if run_id and syslog_dir is not None:
+            from src.streaming.syslog_source import events_from_syslog
+            events += events_from_syslog(syslog_dir, run_id)
     logger.info("Collected %d event(s) from offline artefacts.", len(events))
     return events

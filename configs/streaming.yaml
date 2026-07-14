@@ -39,6 +39,12 @@ sources:
   engine_a:
     enabled: true
     dataset: unsw_nb15
+  syslog:
+    # Offline industrial-switch syslog ingestion run (Phase 12). Disabled by
+    # default; set enabled: true and point default_run_id at a run under
+    # outputs/syslog_ingestion/<run_id>/ produced by ingest_switch_syslog.
+    enabled: false
+    default_run_id: null
 
 dashboard:
   write_current_state: true

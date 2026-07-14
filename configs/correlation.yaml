@@ -35,6 +35,36 @@ rules:
     enabled: true
     min_severity: high      # only high/critical single-engine signals fall back
 
+  # ---- Phase 13 syslog-aware rules (deterministic, YAML-gated) ----
+  SYSLOG_SNMP_AUTH_CAMPAIGN:
+    enabled: true
+    minimum_attempts: 10    # weighted SNMP auth failures before an incident
+    high_attempts: 100      # (informational; severity follows signal severity)
+    severity_boost: 1       # escalate when a cyber signal also corroborates
+  PORT_INSTABILITY:
+    enabled: true
+    minimum_transitions: 4  # weighted up/down transitions per interface
+    severity_boost: 1       # escalate when a health anomaly corroborates
+  LOOP_OR_REDUNDANCY_INSTABILITY:
+    enabled: true
+    minimum_mac_flaps: 3
+    require_multi_source_for_critical: true  # cap at high unless multi-source
+    severity_boost: 0
+  DUPLICATE_IP_CONFLICT:
+    enabled: true
+    severity_boost: 0
+  POE_ENDPOINT_FAILURE:
+    enabled: true
+    severity_boost: 0
+  MANAGEMENT_ACCESS_EXPOSURE:
+    enabled: true
+    severity_boost: 0
+  CLOCK_INTEGRITY_RISK:
+    enabled: true
+  SINGLE_SYSLOG_HIGH_RISK:
+    enabled: true
+    min_severity: high      # isolated high/critical syslog signals fall back
+
 # ---------------------------------------------------------------- scoring
 # Deterministic confidence adjustments (0-1, clamped). Severity uses the most
 # severe member signal, escalated by the per-rule severity_boost and by exact
@@ -44,6 +74,34 @@ scoring:
   same_interface_bonus: 0.25
   same_device_bonus: 0.15
   multi_engine_bonus: 0.2
+
+# ---------------------------------------------------------------- syslog input
+# Phase 13: persisted industrial-syslog artefacts become normalised signals that
+# join Engine A/B/C evidence in the SAME correlation pipeline. Read-only: no
+# listener, no socket, no device contact.
+syslog:
+  enabled: true
+  required: false           # syslog is opt-in via --syslog-run (CLI stays back-compat)
+  default_run: latest       # used when --syslog-run is passed without a value
+  include_generic: true
+  generic_signal_severity: info
+  max_generic_signals: 25
+  aggregate_duplicate_events: true
+  unreliable_clock_confidence_multiplier: 0.6
+  # Evidence-quality band -> numeric confidence for syslog signals.
+  confidence_by_quality:
+    high: 0.9
+    medium: 0.7
+    low: 0.5
+
+# ------------------------------------------------------------- entity matching
+# Conservative cross-source entity matching. Interface aliases are normalised
+# (Gi0/1 == GigabitEthernet0/1); a device match is required by default so
+# similar-looking names on different devices are never merged.
+entity_matching:
+  normalize_interfaces: true
+  require_exact_device_match: true
+  uncertain_match_confidence_multiplier: 0.7
 
 # ---------------------------------------------------------------- engine inputs
 # How each engine's artefacts are turned into signals. Kept in config so no

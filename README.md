@@ -211,6 +211,71 @@ The architecture is designed to support additional intrusion detection datasets 
 - **Demo/replay only** — it never contacts a device, opens SSH, polls SNMP, captures packets, runs an engine pipeline or executes a remediation command; every input and output is a local file. All `safety.allow_*` flags in `configs/streaming.yaml` are false and there is no code path that honours a true value (`python -m scripts.run_streaming_demo`)
 - **Offline ML workflow console** (`src/ml_workflow/` + `scripts/run_offline_ml_workflow.py`): selects datasets/models/steps and maps them onto the existing **offline** Engine A entry points (validate → audit → preprocess → features → train → reports → explainability/error-analysis/visualizations → registry → promote → resolve); `--dry-run` prints the exact commands, and the dashboard's read-only **ML Workflow** tab builds the command to run in a terminal (it never executes). Offline Engine A datasets/models only — no live devices, traffic, SNMP, SSH, packet capture or remediation
 
+### Industrial Switch Syslog Ingestion (Offline)
+
+- **Offline syslog ingestion layer** (`src/syslog_ingestion/` + `scripts/ingest_switch_syslog.py`): parses *saved* Belden/DCN-style industrial switch logs — both raw syslog exports and PuTTY terminal captures — into structured, typed `SyslogEvent` objects
+- **Preprocessing** captures ANSI colour hints, strips ANSI escapes, removes `---MORE---` pager markers, `show logging` headers and prompt echoes, and deduplicates exact-repeat lines into a weighted `duplicate_count` (with a full `dropped_lines` / `duplicate_lines` audit trail)
+- **Mnemonic-specific extractors** pull interfaces, VLANs, MACs, IPs, flap counts, ERPS ring/state, SNMP communities/users, PoE faults, power/fan/reboot and login details, and route each event to the relevant engine via per-event hints; unknown mnemonics still parse as generic events and never crash
+- **Engine B adapter output**: fixed-width time-window features (5/15 min) per host and per interface, threshold-derived weak labels (port-flap degradation, MAC-move loop risk, SNMP auth-fail bursts, device instability) and a **chronological** (never random) train/validation/test split with a manifest; supports per-host holdout
+- **Engine C findings**: cautious, detection-only findings for frequent port flapping, MAC flapping / possible L2 loops, SNMP reconnaissance, ARP duplicate-IP indicators, PoE shorts, ERPS topology churn, insecure telnet management and device health — with a rule summary
+- **Read-only, offline-only** — it parses saved files only. It never contacts a device, opens SSH/telnet, polls SNMP, captures packets or executes any remediation. Timestamps default to IST (Asia/Kolkata); `Jan 1 1970` boot-clock lines are flagged and excluded from feature windows. Outputs land under `outputs/syslog_ingestion/<run_id>/`, feed the dashboard's **Industrial Syslog** page and can be replayed by the streaming demo (disabled by default). Raw operator logs may be private and are never committed.
+
+```bash
+# Ingest saved switch logs into events, Engine B windows and Engine C findings
+python -m scripts.ingest_switch_syslog \
+  --input-dir datasets/raw/syslog \
+  --run-id lw_terminal_syslog_sample
+```
+
+### Syslog-Enhanced Correlation (Offline)
+
+- **One correlation pipeline, one incident model.** Persisted industrial-syslog artefacts (from the ingestion step above) are converted into normalised `engine="syslog"` correlation signals that join Engine A/B/C evidence in the **existing** correlation engine — there is no parallel correlator and no duplicated parser
+- **Syslog-aware, YAML-gated rules** produce unified operational incidents: SNMP authentication campaigns, port instability, loop / redundancy instability (MAC flaps + ERPS + topology), duplicate-IP conflicts, PoE endpoint failures, management-plane exposure, clock-integrity risk, and a single-syslog high-risk fallback. Wording stays cautious (`suspected` / `possible` / `candidate` / `consistent with`) — no attack, loop or failure is called *confirmed* unless the device message itself is conclusive
+- **Evidence quality is explicit.** Confidence is banded by evidence type; unreliable-clock (`Jan 1 1970`) events reduce confidence and mark incident time reliability as *approximate*; cross-source entity matching normalises interface aliases (`Gi0/1` ≡ `GigabitEthernet0/1`) and requires a device match, reporting `exact` / `normalized` / `uncertain` / `none` so incidents never overstate a shared root cause
+- **Deterministic and explainable** — signal and incident ids are content-addressed; the summary/report/streaming/dashboard gain syslog roll-ups (signals loaded, events represented, generic count, clock-unreliable count, incidents with syslog evidence) and a **Time Reliability** notice
+- **Read-only and offline** — no listener, no UDP/TCP socket, no device contact, no packet capture, no remediation. Syslog is **opt-in**: existing correlation commands behave exactly as before
+
+```bash
+# 1) Ingest a local switch log first (offline)
+python -m scripts.ingest_switch_syslog \
+  --input-dir datasets/raw/syslog --run-id lw_terminal_syslog_sample
+
+# 2) Correlate syslog evidence alongside Engine A/B/C (syslog is opt-in)
+python -m scripts.run_correlation \
+  --engine-c-snapshot sample_remediation \
+  --engine-b-dataset synthetic \
+  --engine-a-dataset unsw_nb15 \
+  --syslog-run latest \
+  --correlation-id sample_syslog_correlation
+
+# Inspect the unified report (Syslog Evidence Overview + Time Reliability Notes)
+#   outputs/correlation/sample_syslog_correlation/correlation_report.md
+```
+
+The offline streaming demo and the read-only dashboard consume this enhanced output automatically: incidents that cite syslog evidence are flagged, and a time-integrity banner appears when device clocks are unreliable. Weak labels and generic (unclassified) events are treated cautiously and never presented as verified incidents.
+
+### One-Command Full Demo (Offline)
+
+- **`scripts/prepare_full_demo.py`** prepares or refreshes *every* artefact the frontend needs in one command: it runs/refreshes the Engine C assessment, reuses valid Engine A/B models (training only what is missing), discovers/reuses the latest syslog run, exports the Engine C dashboard views, runs the unified syslog-enhanced correlation, generates the streaming current-state, then validates that the read-only dashboard can load every section — writing a single demo-readiness report under `outputs/demo/<demo_run_id>/`
+- **Reuse-first & conditional** — existing Engine A production models and Engine B experiments are reused; missing ones are trained via the existing scripts (no second training orchestrator). Each stage records `pending / running / success / failed / skipped / reused_existing` with timings, commands and generated artefacts
+- **Allowlisted & offline** — the orchestrator executes **only** an approved allowlist of local Python modules as argument arrays (never a shell string). It never opens SSH/SNMP/syslog listeners, captures packets, contacts a device, executes remediation, or mutates raw datasets/source artefacts. Engine C dry-run actions stay `executed=false` / `dry_run_only=true`. `python -m scripts.validate_engine_c_safety` is part of the readiness check
+
+```bash
+# Inspect the exact plan first (executes nothing)
+python -m scripts.prepare_full_demo --dry-run
+
+# Prepare everything (reuses existing models; trains only what is missing)
+python -m scripts.prepare_full_demo
+
+# Fast path when Engine A/B artefacts already exist (skip all training)
+python -m scripts.prepare_full_demo --skip-training
+
+# Prepare, then launch the read-only dashboard
+python -m scripts.prepare_full_demo --launch-dashboard
+```
+
+After preparation the dashboard defaults to assessment `demo_assessment`, correlation `demo_full_correlation` and the streaming current-state, and shows a "Demo data prepared successfully" readiness summary. **Note:** a first run without existing Engine A models can trigger long, GPU-bound XGBoost training — prefer `--skip-training` (or run training separately) when the production models are already present. If Streamlit is not installed, artefact preparation still succeeds and the report explains how to install it for the frontend.
+
 ### Software Quality
 
 - Unit testing

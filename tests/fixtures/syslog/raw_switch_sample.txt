@@ -1,0 +1,9 @@
+Jun 13 2026 04:44:05 TERM-LW-AAI-IR8-SW3 MEMBER-0/MPU0 %PORTMGR-LINEPROTO_DOWN-3:Line protocol on interface gigabitethernet2/0/6, changed state to down.
+Jun 13 2026 04:44:31 TERM-LW-AAI-IR8-SW3 MEMBER-0/MPU0 %PORTMGR-LINEPROTO_UP-5:Line protocol on interface gigabitethernet2/0/6, changed state to up.
+Jun 13 2026 04:45:05 TERM-LW-AAI-IR8-SW3 MEMBER-0/MPU0 %PORTMGR-LINEPROTO_DOWN-3:Line protocol on interface gigabitethernet2/0/6, changed state to down.
+Jun 13 2026 04:45:31 TERM-LW-AAI-IR8-SW3 MEMBER-0/MPU0 %PORTMGR-LINEPROTO_UP-5:Line protocol on interface gigabitethernet2/0/6, changed state to up.
+Jun 13 2026 18:42:00 TERM-LW-AAI-IR8-SW3 MEMBER-0/MPU0 %SNMP-COMMUNITY_AUTHOR_FAILED-3:Community public authentication failed.
+Jun 13 2026 18:42:00 TERM-LW-AAI-IR8-SW3 MEMBER-0/MPU0 %SNMP-COMMUNITY_AUTHOR_FAILED-3:Community public authentication failed.
+Jun 13 2026 18:42:01 TERM-LW-AAI-IR8-SW3 MEMBER-0/MPU0 %SNMP-COMMUNITY_AUTHOR_FAILED-3:Community private authentication failed.
+Jun 13 2026 19:10:01 TERM-LW-AAI-IR8-SW3 MEMBER-0/MPU0 %POE-POWER_ABNORMAL-3:Short detected on interface gigabitethernet0/7.
+Jun 13 2026 20:00:00 TERM-LW-AAI-IR8-SW3 MEMBER-0/MPU0 %ARP-MAC_CHANGE_TOO_FAST-5:Ether address of host 192.168.100.46 change too fast, may be duplicate IP address in the network.

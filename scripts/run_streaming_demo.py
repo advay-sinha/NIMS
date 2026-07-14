@@ -123,6 +123,8 @@ def _resolve_dirs(ctx, config: dict) -> dict:
         "error_analysis_dir": ctx.paths.error_analysis_dir,
         "visualizations_dir": ctx.paths.visualizations_dir,
         "experiments_dir": ctx.paths.experiments_dir,
+        "syslog_ingestion_dir": getattr(ctx.paths, "outputs_dir",
+                                         root / "outputs") / "syslog_ingestion",
         # streaming outputs (write)
         "output_dir": _resolve(streaming.get("output_dir", "outputs/streaming")),
         "current_state_dir": _resolve(

@@ -370,6 +370,65 @@ def _latest_engine_b_experiment(dataset_dir: Path) -> Optional[dict[str, Any]]:
         "anomaly_rate": (n_pred / n_samples) if n_samples else 0.0}
 
 
+# --------------------------------------------------------- syslog ingestion
+
+
+def list_syslog_runs(syslog_dir: str | Path) -> list[str]:
+    """List available syslog-ingestion run ids (directories), newest name last."""
+    root = Path(syslog_dir)
+    if not root.is_dir():
+        return []
+    return sorted(p.name for p in root.iterdir()
+                  if p.is_dir() and (p / "parser_summary.json").is_file())
+
+
+def latest_syslog_run(syslog_dir: str | Path) -> Optional[str]:
+    """Return the most-recently-modified syslog run id, or ``None``."""
+    root = Path(syslog_dir)
+    if not root.is_dir():
+        return None
+    runs = [p for p in root.iterdir()
+            if p.is_dir() and (p / "parser_summary.json").is_file()]
+    if not runs:
+        return None
+    return max(runs, key=lambda p: p.stat().st_mtime).name
+
+
+def load_syslog_run(syslog_dir: str | Path, run_id: str) -> dict[str, Any]:
+    """Load one syslog-ingestion run's read-only artefacts.
+
+    Reads only what ``scripts.ingest_switch_syslog`` already wrote; never parses
+    raw logs itself and never contacts a device.
+    """
+    run_dir = Path(syslog_dir) / run_id
+    summary = _read_json(run_dir / "parser_summary.json")
+    if summary is None:
+        return {
+            "available": False, "run_id": run_id, "summary": {},
+            "findings": [], "rule_summary": {}, "feature_summary": {},
+            "weak_label_summary": {},
+            "message": ("Syslog ingestion output not found. Run:\n"
+                        "python -m scripts.ingest_switch_syslog --input-dir "
+                        f"datasets/raw/syslog --run-id {run_id}")}
+
+    findings = _read_json(run_dir / "engine_c" / "syslog_findings.json") or []
+    rule_summary = _read_json(run_dir / "engine_c" / "syslog_rule_summary.json") or {}
+    feature_summary = _read_json(run_dir / "engine_b" / "feature_summary.json") or {}
+    weak_labels = _read_json(run_dir / "engine_b" / "weak_label_summary.json") or {}
+    report = run_dir / "report.md"
+    windows_csv = run_dir / "engine_b" / "syslog_windows_5min.csv"
+    return {
+        "available": True, "run_id": run_id, "run_dir": str(run_dir),
+        "summary": summary if isinstance(summary, dict) else {},
+        "findings": findings if isinstance(findings, list) else [],
+        "rule_summary": rule_summary if isinstance(rule_summary, dict) else {},
+        "feature_summary": feature_summary if isinstance(feature_summary, dict) else {},
+        "weak_label_summary": weak_labels if isinstance(weak_labels, dict) else {},
+        "report_path": str(report) if report.is_file() else None,
+        "windows_csv_path": str(windows_csv) if windows_csv.is_file() else None,
+        "message": None}
+
+
 # --------------------------------------------------------------- overview
 
 
@@ -451,6 +510,10 @@ def build_executive_summary(engine_c: dict[str, Any], correlation: dict[str, Any
         "affected_devices": devices[:12],
         "likely_root_causes": causes[:5],
         "recommended_actions": actions[:6],
+        "incidents_with_syslog_evidence": sum(
+            1 for i in incidents if i.get("syslog_signal_count", 0)),
+        "clock_integrity_warning": any(
+            i.get("time_reliability", "reliable") != "reliable" for i in incidents),
         "safety_status": {
             "offline": True,
             "no_command_execution": True,

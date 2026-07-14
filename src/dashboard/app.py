@@ -74,6 +74,15 @@ def main() -> None:
                                     paths.error_analysis_dir,
                                     paths.visualizations_dir, paths.experiments_dir)
     engine_b = loader.load_engine_b(paths.network_health_dir)
+    syslog_dir = paths.outputs_dir / "syslog_ingestion"
+    syslog_run = defaults.get("default_syslog_run") or \
+        loader.latest_syslog_run(syslog_dir)
+    syslog = loader.load_syslog_run(syslog_dir, syslog_run) if syslog_run else \
+        {"available": False, "run_id": None,
+         "message": "No industrial syslog run found. Run: "
+                    "python -m scripts.ingest_switch_syslog "
+                    "--input-dir datasets/raw/syslog --run-id "
+                    "lw_terminal_syslog_sample"}
     overview = loader.compute_overview(engine_c, correlation, engine_a, engine_b)
     executive = loader.build_executive_summary(engine_c, correlation, engine_b,
                                                engine_a)
@@ -98,6 +107,7 @@ def main() -> None:
         ("Metrics", "overview", lambda: views.render_overview(overview)),
         ("Engine A", "engine_a", lambda: views.render_engine_a(engine_a)),
         ("Engine B", "engine_b", lambda: views.render_engine_b(engine_b)),
+        ("Industrial Syslog", "syslog", lambda: views.render_syslog(syslog)),
         ("Engine C", "engine_c", lambda: views.render_engine_c(engine_c)),
         ("Topology", "topology", lambda: views.render_topology(engine_c)),
         ("ML Workflow", "ml_workflow", views.render_ml_workflow_console),

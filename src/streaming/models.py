@@ -30,6 +30,7 @@ ENGINE_A = "engine_a"
 ENGINE_B = "engine_b"
 ENGINE_C = "engine_c"
 CORRELATION = "correlation"
+SYSLOG = "syslog"
 SYSTEM = "system"
 
 SEVERITY_ORDER: dict[str, int] = {

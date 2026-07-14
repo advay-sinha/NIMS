@@ -10,22 +10,22 @@ import { useApi } from "./api.js";
 import { SECTIONS, sectionById } from "./lib/sections.js";
 import Overview from "./sections/Overview.jsx";
 import Live from "./sections/Live.jsx";
-import Training from "./sections/Training.jsx";
 import { EngineA, EngineB } from "./sections/Engines.jsx";
 import EngineC from "./sections/EngineC.jsx";
 import Correlation from "./sections/Correlation.jsx";
 import History from "./sections/History.jsx";
 import Safety from "./sections/Safety.jsx";
+import Training from "./sections/Training.jsx";
 
 const VIEWS = {
   overview: Overview,
   live: Live,
-  training: Training,
   engine_a: EngineA,
   engine_b: EngineB,
   engine_c: EngineC,
   correlation: Correlation,
   history: History,
+  training: Training,
   safety: Safety,
 };
 
