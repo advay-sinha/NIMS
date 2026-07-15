@@ -32,3 +32,8 @@ data/metadata/
 webapp/server/node_modules/
 webapp/frontend/node_modules/
 webapp/frontend/dist/
+
+# Live-integration local secrets/inventory — NEVER commit (may contain hosts,
+# usernames, host keys). Credentials themselves always come from env vars.
+configs/*.local.yaml
+configs/known_hosts.local

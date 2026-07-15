@@ -6,6 +6,7 @@
  * card per section describing what it contains.
  */
 
+import { useState } from "react";
 import { useApi } from "../api.js";
 import { SECTIONS } from "../lib/sections.js";
 import { int } from "../lib/format.js";
@@ -14,6 +15,7 @@ import {
   StatTile,
   SeverityBadge,
   Loader,
+  IncidentModal,
 } from "../components/primitives.jsx";
 
 const STATUS_STRIP = {
@@ -42,6 +44,7 @@ export default function Overview({ section, onNavigate }) {
 
 function OverviewBody({ data, onNavigate }) {
   const { cards, executive } = data;
+  const [openIncident, setOpenIncident] = useState(null);
   return (
     <>
       <div
@@ -92,13 +95,19 @@ function OverviewBody({ data, onNavigate }) {
         <div className="card">
           <h3>Critical incidents</h3>
           {executive.criticalIncidents.length ? (
-            <ul className="list-plain">
+            <ul className="list-plain incident-list">
               {executive.criticalIncidents.map((inc) => (
                 <li key={inc.incidentId}>
-                  <SeverityBadge severity={inc.severity} /> {inc.title}{" "}
-                  <span className="muted mono">
-                    {inc.ruleId} · {inc.devices.join(", ")}
-                  </span>
+                  <button
+                    type="button"
+                    className="incident-open"
+                    onClick={() => setOpenIncident(inc)}
+                  >
+                    <SeverityBadge severity={inc.severity} /> {inc.title}{" "}
+                    <span className="muted mono">
+                      {inc.ruleId} · {inc.devices.join(", ")}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -150,6 +159,11 @@ function OverviewBody({ data, onNavigate }) {
           </div>
         ))}
       </div>
+
+      <IncidentModal
+        incident={openIncident}
+        onClose={() => setOpenIncident(null)}
+      />
     </>
   );
 }

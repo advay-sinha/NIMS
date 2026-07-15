@@ -55,6 +55,12 @@ export function loadConfig(root = repoRoot()) {
       showNoExecutionBanner: webCfg.safety?.show_no_execution_banner ?? true,
       allowActions: webCfg.safety?.allow_actions ?? false,
     },
+    liveIngestion: {
+      // Optional run-once control, DISABLED by default. Even when enabled this
+      // endpoint never executes anything; it only records intent and points at
+      // the offline CLI (the webapp is a viewer, never an actuator).
+      allowRunOnce: webCfg.live_ingestion?.allow_run_once ?? false,
+    },
     dirs: {
       outputs: rel("outputs_dir", "outputs"),
       experiments: rel("experiments_dir", "outputs/experiments"),
@@ -70,6 +76,7 @@ export function loadConfig(root = repoRoot()) {
       networkConfig: rel("network_config_dir", "outputs/network_config"),
       correlation: rel("correlation_dir", "outputs/correlation"),
       streaming: path.join(rel("outputs_dir", "outputs"), "streaming"),
+      liveLogging: path.join(rel("outputs_dir", "outputs"), "live_logging"),
     },
   };
 }

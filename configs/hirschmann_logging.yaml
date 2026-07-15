@@ -1,0 +1,67 @@
+# NetSentinel — Hirschmann ingestion (Phase 9) configuration
+#
+# Hirschmann SNMP polling + SNMP traps + configuration snapshot diffing.
+# OFFLINE by default: every source reads saved sample files. Live SNMP polling,
+# a live trap receiver and live SSH/SCP config retrieval are disabled and,
+# when enabled, require explicit user approval and injected clients. SNMP/SSH
+# credentials are referenced only by ENVIRONMENT VARIABLE NAME.
+
+hirschmann:
+  snmp_polling:
+    enabled: true
+    mode: offline                       # `live` needs pysnmp + approval + credentials
+    read_only: true
+    version: v3
+    poll_interval_seconds: 60
+    request_timeout_seconds: 5
+    # Env var NAMES only.
+    username_env: HIRSCHMANN_SNMP_USER
+    auth_password_env: HIRSCHMANN_SNMP_AUTH_PASSWORD
+    privacy_password_env: HIRSCHMANN_SNMP_PRIV_PASSWORD
+    profile: hirschmann_hios_basic      # predefined, allowlisted OID set (no arbitrary OIDs)
+    targets_file: configs/hirschmann_targets.local.yaml   # gitignored; user-provided
+    offline_sample_path: datasets/samples/live_logging/hirschmann/snmp_metrics.json
+
+  traps:
+    enabled: true
+    mode: offline                       # `live` binds a UDP trap receiver — needs approval
+    read_only: true
+    bind_host: 0.0.0.0
+    bind_port: 5162
+    allowed_sources: []                 # source-IP allowlist
+    receive_timeout_seconds: 1
+    run_once_max_wait_seconds: 5
+    queue_size: 10000
+    offline_sample_path: datasets/samples/live_logging/hirschmann/traps.log
+
+  # Offline snapshot directory (used by both the offline config differ and as
+  # the "previous" baseline for live retrieval).
+  config_snapshots:
+    enabled: true
+    mode: offline
+    snapshot_dir: datasets/samples/live_logging/hirschmann/config_snapshots
+    diff_against: previous
+
+  # Read-only live configuration retrieval (SSH). DISABLED by default; strictly
+  # read-only, allowlisted show command only, host-key verification required.
+  config_retrieval:
+    enabled: false
+    mode: offline                       # `live` needs paramiko + approval + credentials
+    read_only: true
+    transport: ssh
+    username_env: HIRSCHMANN_SSH_USER
+    password_env: HIRSCHMANN_SSH_PASSWORD
+    known_hosts_file: configs/known_hosts.local
+    snapshot_dir: datasets/samples/live_logging/hirschmann/config_snapshots
+    allowed_commands:
+      - show running-config
+    allow_config_mode: false
+    allow_write_commands: false
+
+  # Health thresholds consumed by the SNMP metric parser.
+  thresholds:
+    in_errors_high: 100
+    in_discards_high: 100
+    utilization_high: 90
+    temperature_high_c: 70
+    temperature_critical_c: 80

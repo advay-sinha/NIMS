@@ -1,16 +1,17 @@
-/* NetSentinel operations-room theme.
+/* NetSentinel Brutalist Console theme.
  *
- * Direction: air-traffic operations console for airport network
- * infrastructure. Chrome is a blue-tinted tarmac dark (daylight tower in
- * light mode); the signature element is the ATC flight-strip treatment on
- * incidents, findings and the status board — a solid severity edge-strip
- * like a strip holder in a bay. Type: IBM Plex Sans Condensed (display),
- * IBM Plex Sans (body), IBM Plex Mono (data/ids).
+ * Direction: a network-operations console rendered as brutalist signage —
+ * hard 90-degree corners, ink-weight rules instead of soft borders, blunt
+ * offset drop shadows (no blur), oversized condensed caps and a monospace
+ * telemetry voice. The chrome carries three signature elements: a top
+ * "system voice" ticker, a faint engineering grid behind the page and a
+ * giant condensed watermark word behind each section.
  *
- * Chart marks keep the validated dataviz palette: categorical slots
- * identify engines in fixed order; the status palette is reserved for
- * severity and always paired with a text label. Both modes are selected
- * palettes validated against these surfaces, not automatic flips. */
+ * Type: IBM Plex Sans Condensed (display signage), IBM Plex Sans (body),
+ * IBM Plex Mono (data / ids / eyebrows). The color tokens are the shared
+ * NetSentinel palette: engine slots are a fixed categorical order and the
+ * status palette is reserved for severity, always paired with a text label.
+ * Both themes are hand-selected against these surfaces, not automatic flips. */
 
 :root,
 :root[data-theme="light"] {
@@ -39,6 +40,8 @@
   --status-good: #006300;
   --accent: #2a78d6;
   --accent-soft: rgba(42, 120, 214, 0.1);
+
+  --ticker-h: 41px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -99,13 +102,17 @@ body {
   color: var(--ink);
   font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
+}
+
+::selection {
+  background: var(--accent-soft);
 }
 
 /* Type roles. Display = condensed signage caps; mono = telemetry/ids. */
 .display {
   font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.01em;
 }
 
@@ -129,21 +136,122 @@ body {
   font-weight: 600;
 }
 
-/* ------------------------------------------------------------- app layout */
+/* ------------------------------------------------------------- app shell */
+
+.shell {
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Signature 1: faint engineering grid behind everything. */
+.grid-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+/* Signature 2: the "system voice" ticker across the top. */
+.ticker {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: stretch;
+  height: var(--ticker-h);
+  border-bottom: 2px solid var(--ink);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.ticker-tag {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 16px;
+  border-right: 2px solid var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--status-good);
+  white-space: nowrap;
+}
+
+.ticker-tag i {
+  width: 8px;
+  height: 8px;
+  background: var(--status-good);
+  animation: ns-pulse 2.2s ease infinite;
+}
+
+.ticker-viewport {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.ticker-track {
+  display: flex;
+  gap: 0;
+  white-space: nowrap;
+  width: max-content;
+  animation: ns-ticker 46s linear infinite;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.ticker-track span {
+  padding: 0 28px;
+}
+
+.ticker-track span.dot {
+  padding: 0;
+  color: var(--baseline);
+}
+
+@keyframes ns-ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ns-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
 
 .app {
+  position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: 236px 1fr;
-  min-height: 100vh;
+  grid-template-columns: 250px 1fr;
+  align-items: stretch;
 }
 
 .sidebar {
-  border-right: 1px solid var(--border);
+  border-right: 2px solid var(--ink);
   background: var(--surface);
-  padding: 18px 12px 14px;
+  padding: 22px 12px 16px;
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: calc(100vh - var(--ticker-h));
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -152,11 +260,12 @@ body {
 
 .brand {
   font-family: "IBM Plex Sans Condensed", sans-serif;
-  font-size: 19px;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  padding: 2px 10px 14px;
+  line-height: 1;
+  padding: 0 10px 20px;
 }
 
 .brand small {
@@ -166,22 +275,24 @@ body {
   color: var(--muted);
   font-size: 10px;
   letter-spacing: 0.16em;
-  margin-top: 3px;
+  margin-top: 6px;
 }
 
 .nav-button {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   border: 0;
   border-left: 3px solid transparent;
   background: transparent;
   color: var(--ink-2);
   font: inherit;
+  font-size: 12.5px;
   text-align: left;
-  padding: 7px 10px;
-  border-radius: 0 6px 6px 0;
+  padding: 9px 8px;
+  border-radius: 0;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -202,7 +313,7 @@ body {
   font-size: 10px;
   letter-spacing: 0.08em;
   color: var(--muted);
-  width: 44px;
+  width: 38px;
   flex: none;
 }
 
@@ -213,16 +324,16 @@ body {
 .nav-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: 0;
   flex: none;
 }
 
 .sidebar-footer {
   margin-top: auto;
-  padding: 10px;
+  padding: 16px 10px 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .readonly-pill {
@@ -232,29 +343,63 @@ body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--status-good);
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  padding: 4px 10px;
+  border: 1.5px solid currentColor;
+  border-radius: 0;
+  padding: 5px 10px;
   text-align: center;
 }
 
 .theme-toggle {
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--ink-2);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font: inherit;
-  font-size: 12px;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 0;
+  padding: 8px 10px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
+.theme-toggle:hover {
+  background: var(--ink);
+  color: var(--surface);
+}
+
 .main {
-  padding: 26px 34px 64px;
-  max-width: 1240px;
+  position: relative;
+  padding: 36px 46px 80px;
+  max-width: 1180px;
   width: 100%;
   margin: 0 auto;
   min-width: 0;
+  overflow: hidden;
+}
+
+/* Signature 3: giant condensed watermark word behind the section body. */
+.watermark {
+  position: absolute;
+  top: -8px;
+  right: 18px;
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-weight: 700;
+  font-size: 168px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: 0.035;
+  line-height: 0.9;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  z-index: 0;
+}
+
+.main-inner {
+  position: relative;
+  z-index: 1;
 }
 
 /* ---------------------------------------------------------------- section */
@@ -265,24 +410,25 @@ body {
 
 .section-header h1 {
   font-family: "IBM Plex Sans Condensed", sans-serif;
-  font-size: 26px;
+  font-size: 44px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
-  margin: 2px 0 0;
+  line-height: 1;
+  margin: 8px 0 0;
 }
 
 .section-sub {
   color: var(--ink-2);
-  max-width: 78ch;
-  margin: 6px 0 14px;
+  max-width: 72ch;
+  margin: 10px 0 16px;
 }
 
 .feature-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 0 0 22px;
+  margin: 0 0 24px;
 }
 
 .chip {
@@ -292,16 +438,16 @@ body {
   letter-spacing: 0.04em;
   color: var(--ink-2);
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
   padding: 3px 9px;
   cursor: help;
 }
 
 .chip:hover,
 .chip:focus-visible {
-  color: var(--ink);
-  border-color: var(--accent);
+  background: var(--ink);
+  color: var(--surface);
 }
 
 /* hover tooltip bubble */
@@ -314,10 +460,10 @@ body {
   max-width: 320px;
   background: var(--surface);
   color: var(--ink);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--ink);
+  border-left: 6px solid var(--accent);
+  border-radius: 0;
+  box-shadow: 6px 6px 0 var(--border);
   padding: 10px 12px;
   font-family: "IBM Plex Sans", sans-serif;
   font-size: 12.5px;
@@ -341,8 +487,8 @@ body {
   justify-content: center;
   width: 16px;
   height: 16px;
-  border-radius: 50%;
-  border: 1px solid var(--muted);
+  border-radius: 0;
+  border: 1.5px solid var(--muted);
   color: var(--muted);
   font-size: 10.5px;
   font-weight: 700;
@@ -362,11 +508,11 @@ body {
 
 .grid {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .grid.tiles {
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .grid.cols-2 {
@@ -375,14 +521,15 @@ body {
 
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--border);
+  padding: 18px 20px;
   min-width: 0;
 }
 
 .card h3 {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   font-family: "IBM Plex Mono", monospace;
   font-size: 11px;
   font-weight: 600;
@@ -396,24 +543,27 @@ body {
 
 .stat-value {
   font-family: "IBM Plex Sans Condensed", sans-serif;
-  font-size: 30px;
+  font-size: 44px;
   font-weight: 700;
   line-height: 1.05;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .stat-note {
   color: var(--muted);
   font-size: 12px;
-  margin-top: 4px;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
 }
 
-/* ---------------------------------------------------------- flight strips */
+/* ------------------------------------------------------- severity strips */
 
-/* The signature: a strip-holder edge. Solid severity bar on the left,
- * like a paper flight strip seated in its bay. */
+/* Solid severity edge on the left — like a strip seated in an ops bay. */
 .strip {
   border-left: 6px solid var(--baseline);
-  border-radius: 4px 8px 8px 4px;
+  border-radius: 0;
 }
 
 .strip.sev-critical { border-left-color: var(--sev-critical); }
@@ -428,19 +578,22 @@ body {
   display: flex;
   gap: 14px;
   align-items: center;
-  border: 1px solid var(--border);
+  border: 2px solid var(--ink);
+  border-left-width: 8px;
+  border-radius: 0;
   background: var(--surface);
-  padding: 16px 20px;
-  margin-bottom: 20px;
+  box-shadow: 6px 6px 0 var(--accent-soft);
+  padding: 22px 28px;
+  margin-bottom: 26px;
 }
 
 .status-banner .status-word {
   font-family: "IBM Plex Sans Condensed", sans-serif;
-  font-size: 20px;
+  font-size: 56px;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
-  line-height: 1.2;
+  line-height: 0.95;
 }
 
 .status-banner .status-detail {
@@ -453,7 +606,7 @@ body {
   color: var(--muted);
   font-size: 11px;
   letter-spacing: 0.04em;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 /* ------------------------------------------------------------------ badges */
@@ -466,7 +619,7 @@ body {
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.08em;
-  border-radius: 3px;
+  border-radius: 0;
   padding: 2px 8px;
   border: 1px solid currentColor;
   text-transform: uppercase;
@@ -502,7 +655,7 @@ body {
 .bar-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 0 4px 4px 0;
+  border-radius: 0;
   min-width: 2px;
   transition: width 0.25s ease;
 }
@@ -544,7 +697,7 @@ th {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--baseline);
+  border-bottom: 2px solid var(--ink);
   white-space: nowrap;
 }
 
@@ -571,8 +724,8 @@ tbody tr:hover {
 /* ------------------------------------------------------------- empty state */
 
 .empty {
-  border: 1px dashed var(--baseline);
-  border-radius: 8px;
+  border: 1.5px dashed var(--baseline);
+  border-radius: 0;
   padding: 22px;
   color: var(--ink-2);
 }
@@ -581,8 +734,8 @@ tbody tr:hover {
   display: inline-block;
   margin-top: 6px;
   background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
   padding: 3px 8px;
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
@@ -624,9 +777,9 @@ tbody tr:hover {
 .select-row select {
   background: var(--surface);
   color: var(--ink);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 10px;
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  padding: 7px 12px;
   font: inherit;
   font-family: "IBM Plex Mono", monospace;
   font-size: 12.5px;
@@ -634,8 +787,8 @@ tbody tr:hover {
 
 pre.report {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
   padding: 16px;
   overflow-x: auto;
   white-space: pre-wrap;
@@ -651,8 +804,473 @@ h2 {
   text-transform: uppercase;
 }
 
+/* -------------------------------------------------- live ingestion page */
+
+.ingest-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 2px solid var(--status-good);
+  border-left-width: 8px;
+  background: var(--surface);
+  color: var(--ink-2);
+  padding: 12px 16px;
+  margin: 0 0 20px;
+  font-size: 13px;
+}
+
+.ingest-banner-tag {
+  flex: none;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--status-good);
+  border: 1.5px solid currentColor;
+  padding: 3px 8px;
+}
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.readiness-tile {
+  border: 1.5px solid var(--ink);
+  border-left: 6px solid var(--muted);
+  border-radius: 0;
+  padding: 12px 14px;
+  background: var(--surface-2);
+}
+
+.readiness-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.readiness-name {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.readiness-meta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.readiness-env {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.env-chip {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  border: 1px solid currentColor;
+  padding: 1px 6px;
+}
+
+.env-chip.set {
+  color: var(--status-good);
+}
+
+.env-chip.unset {
+  color: var(--sev-high);
+}
+
+.readiness-steps {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.readiness-steps li {
+  margin: 2px 0;
+}
+
+.ingest-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0 0 12px;
+}
+
+.ingest-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ingest-filters select {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  padding: 6px 10px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  min-width: 120px;
+}
+
+/* ---------------------------------------------------------- search filter */
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  background: var(--surface);
+  padding: 0 12px;
+  max-width: 520px;
+}
+
+.search-box:focus-within {
+  box-shadow: 3px 3px 0 var(--accent-soft);
+}
+
+.search-ico {
+  font-size: 15px;
+  color: var(--muted);
+  flex: none;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+  padding: 9px 0;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+/* Kill the native clear affordance; we render our own. */
+.search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-clear {
+  flex: none;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 0;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.search-clear:hover {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.search-count {
+  flex: none;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------- incident popup modal */
+
+/* Clickable list of incidents in the Overview "Critical incidents" card. */
+.incident-list li {
+  margin: 6px 0;
+}
+
+.incident-open {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.incident-open:hover,
+.incident-open:focus-visible {
+  background: var(--surface-2);
+  border-left-color: var(--accent);
+  outline: none;
+}
+
+/* Rows that open a detail popup. */
+table.clickable tbody tr {
+  cursor: pointer;
+}
+
+table.clickable tbody tr:hover {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(6, 10, 14, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 20px 20px;
+  overflow-y: auto;
+}
+
+.modal {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-left-width: 8px;
+  border-radius: 0;
+  box-shadow: 10px 10px 0 rgba(6, 10, 14, 0.35);
+  padding: 24px 26px 20px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-right: 34px;
+  margin-bottom: 16px;
+}
+
+.modal-title {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  line-height: 1;
+  margin: 0;
+}
+
+.modal-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 20px;
+  margin: 0 0 18px;
+  padding: 12px 0;
+  border-top: 1px solid var(--grid);
+  border-bottom: 1px solid var(--grid);
+}
+
+.modal-meta div {
+  min-width: 0;
+}
+
+.modal-meta dt {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.modal-meta dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.modal-block {
+  margin: 0 0 16px;
+}
+
+.modal-block h4 {
+  margin: 0 0 6px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.modal-block p {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.modal-foot {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 2px solid var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+/* --------------------------------------------------- markdown report body */
+
+.markdown-body {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.6;
+  max-height: 560px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+  line-height: 1.1;
+  margin: 20px 0 8px;
+}
+
+.markdown-body h1 { font-size: 24px; }
+.markdown-body h2 { font-size: 19px; }
+.markdown-body h3 { font-size: 15px; }
+.markdown-body h4 {
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.markdown-body p {
+  margin: 8px 0;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.markdown-body li {
+  margin: 3px 0;
+}
+
+.markdown-body a {
+  color: var(--accent);
+}
+
+.markdown-body strong {
+  color: var(--ink);
+}
+
+.markdown-body code {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+}
+
+.markdown-body pre {
+  background: var(--surface-2);
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+}
+
+.markdown-body pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.markdown-body blockquote {
+  margin: 8px 0;
+  padding: 4px 14px;
+  border-left: 6px solid var(--baseline);
+  color: var(--muted);
+}
+
+.markdown-body hr {
+  border: 0;
+  border-top: 2px solid var(--ink);
+  margin: 18px 0;
+}
+
+.markdown-body table {
+  margin: 10px 0;
+}
+
+.markdown-body th {
+  border-bottom: 2px solid var(--ink);
+}
+
+.markdown-body td {
+  border-bottom: 1px solid var(--grid);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
+    animation: none !important;
     transition: none !important;
   }
 }
@@ -666,11 +1284,23 @@ h2 {
     height: auto;
     flex-direction: row;
     flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 2px solid var(--ink);
   }
   .sidebar-footer {
     margin-top: 0;
+    padding: 10px;
   }
   .main {
-    padding: 16px;
+    padding: 20px 16px 48px;
+  }
+  .watermark {
+    display: none;
+  }
+  .section-header h1 {
+    font-size: 34px;
+  }
+  .status-banner .status-word {
+    font-size: 40px;
   }
 }

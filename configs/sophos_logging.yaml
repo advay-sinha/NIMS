@@ -1,0 +1,47 @@
+# NetSentinel — Sophos ingestion (Phase 9) configuration
+#
+# Sophos Central SIEM API + Sophos Firewall syslog. OFFLINE by default: sources
+# read saved sample files. Live mode (Central API polling / a syslog receiver)
+# is disabled and, when enabled, requires explicit user approval and injected
+# clients. Credentials are referenced only by ENVIRONMENT VARIABLE NAME here;
+# no secret value is ever stored in this file.
+
+sophos:
+  central_api:
+    enabled: true                       # offline sample parsing only
+    mode: offline                       # `live` needs approval + credentials
+    read_only: true
+    # Env var NAMES only — never values.
+    client_id_env: SOPHOS_CLIENT_ID
+    client_secret_env: SOPHOS_CLIENT_SECRET
+    tenant_id_env: SOPHOS_TENANT_ID
+    region_env: SOPHOS_REGION
+    region: eu                          # must be set explicitly for live; never guessed
+    poll_interval_seconds: 60
+    request_timeout_seconds: 30
+    batch_size: 500
+    checkpoint_file: outputs/live_logging/checkpoints/sophos_api_checkpoint.json
+    offline_sample_path: datasets/samples/live_logging/sophos/central_api_alerts.json
+
+  firewall_syslog:
+    enabled: true
+    mode: offline                       # `live` binds a UDP receiver — needs approval
+    read_only: true
+    protocol: udp
+    bind_host: 0.0.0.0
+    bind_port: 5514                     # non-privileged
+    allowed_sources: []                 # source-IP allowlist (empty = accept any in mock)
+    max_datagram_bytes: 65535
+    receive_timeout_seconds: 1
+    run_once_max_wait_seconds: 5
+    queue_size: 10000
+    offline_sample_path: datasets/samples/live_logging/sophos/firewall_syslog.log
+
+  categories:
+    - firewall
+    - ips
+    - antivirus
+    - web_filter
+    - sandbox
+    - endpoint
+    - authentication

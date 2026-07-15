@@ -13,6 +13,7 @@ import Live from "./sections/Live.jsx";
 import { EngineA, EngineB } from "./sections/Engines.jsx";
 import EngineC from "./sections/EngineC.jsx";
 import Correlation from "./sections/Correlation.jsx";
+import LiveIngestion from "./sections/LiveIngestion.jsx";
 import History from "./sections/History.jsx";
 import Safety from "./sections/Safety.jsx";
 import Training from "./sections/Training.jsx";
@@ -24,6 +25,7 @@ const VIEWS = {
   engine_b: EngineB,
   engine_c: EngineC,
   correlation: Correlation,
+  live_ingestion: LiveIngestion,
   history: History,
   training: Training,
   safety: Safety,
@@ -33,6 +35,44 @@ function initialTheme() {
   return window.matchMedia?.("(prefers-color-scheme: light)").matches
     ? "light"
     : "dark";
+}
+
+/* The "system voice" ticker — statements that hold regardless of the data on
+ * screen, reinforcing the read-only/offline guarantees and the engine roster.
+ * Duplicated once in the markup so the -50% keyframe loops seamlessly. */
+const TICKER_LINES = [
+  "Everything on screen is read from disk — nothing is executed, ever.",
+  "Engine A serves intrusion-detection models across NSL-KDD, UNSW-NB15 and CICIDS2017.",
+  "Engine B watches SNMP telemetry for degradation; Engine C reads saved network snapshots.",
+  "Correlation groups cyber, health and configuration evidence into unified incidents.",
+  "Remediation is dry-run only — plans ship with rollback and verification, never auto-applied.",
+];
+
+/** Short signage word drawn behind each section (first token of its label). */
+function watermarkFor(section) {
+  return (section.label ?? "").split(" ")[0].toUpperCase();
+}
+
+function Ticker() {
+  const run = [...TICKER_LINES, ...TICKER_LINES];
+  return (
+    <div className="ticker">
+      <div className="ticker-tag">
+        <i />
+        System voice
+      </div>
+      <div className="ticker-viewport">
+        <div className="ticker-track">
+          {run.map((line, i) => (
+            <span key={i}>
+              {line}
+              <span className="dot">·</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
@@ -56,8 +96,11 @@ export default function App() {
   const View = VIEWS[section.id] ?? Overview;
 
   return (
-    <div className="app">
-      <aside className="sidebar">
+    <div className="shell">
+      <div className="grid-bg" aria-hidden="true" />
+      <Ticker />
+      <div className="app">
+        <aside className="sidebar">
         <div className="brand">
           NetSentinel
           <small>Network Operations Console</small>
@@ -82,10 +125,16 @@ export default function App() {
             {theme === "dark" ? "Light theme" : "Dark theme"}
           </button>
         </div>
-      </aside>
-      <main className="main">
-        <View section={section} onNavigate={setActive} />
-      </main>
+        </aside>
+        <main className="main">
+          <div className="watermark" aria-hidden="true">
+            {watermarkFor(section)}
+          </div>
+          <div className="main-inner">
+            <View section={section} onNavigate={setActive} />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

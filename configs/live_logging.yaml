@@ -1,0 +1,46 @@
+# NetSentinel — Live Logging & Telemetry Ingestion (Phase 9) configuration
+#
+# A live-ready but OFFLINE-FIRST ingestion layer. By default every source runs
+# in `offline` mode against saved sample files: no Sophos API call, no syslog
+# socket, no SNMP poll, no trap receiver, no live config retrieval. Live mode is
+# opt-in per source (in configs/sophos_logging.yaml / hirschmann_logging.yaml)
+# and additionally requires explicit user approval + injected clients.
+#
+# This layer is READ-ONLY. There is no code path that changes firewall or
+# switch configuration or executes a remediation command.
+
+live_logging:
+  mode: offline
+  output_dir: outputs/live_logging
+  normalize: true
+  redact_secrets: true
+  append_only: true
+
+  # Deterministic engine routing (source key -> engine target).
+  routing:
+    sophos_api: cyber
+    sophos_syslog: cyber
+    hirschmann_snmp: network_health
+    hirschmann_traps: network_health
+    hirschmann_config: network_config
+
+  checkpoints:
+    enabled: true
+    path: outputs/live_logging/checkpoints
+
+  retry:
+    max_attempts: 3
+    backoff_seconds: 5
+
+  retention:
+    max_events: 100000
+    max_event_bytes: 65536
+
+  batch:
+    size: 500
+
+  safety:
+    read_only: true
+    allow_config_changes: false
+    allow_live_sources: false          # master switch; live mode also needs per-source enable
+    allow_remediation_execution: false

@@ -27,9 +27,16 @@ sections:
   engine_b: true          # network health prediction
   engine_c: true          # network configuration intelligence
   correlation: true       # cross-engine incident correlation
+  live_ingestion: true    # Phase 9 live logging & telemetry ingestion (offline)
   history: true           # past runs, snapshots and event history
   safety: true            # safety posture and guarantees
 
 safety:
   show_no_execution_banner: true
   allow_actions: false    # the webapp is a viewer, never an actuator
+
+# Live-ingestion (Phase 9) API controls.
+live_ingestion:
+  # Optional run-once endpoints are DISABLED by default. Even when enabled the
+  # endpoint never executes anything — ingestion runs only via the offline CLI.
+  allow_run_once: false

@@ -13,8 +13,10 @@ import {
   DataTable,
   InfoHover,
   Loader,
+  SearchBox,
 } from "../components/primitives.jsx";
 import { BarChart } from "../components/charts.jsx";
+import { filterByQuery } from "../lib/search.js";
 
 export default function Correlation({ section }) {
   const [run, setRun] = useState(null);
@@ -59,8 +61,30 @@ export default function Correlation({ section }) {
 
 function CorrelationBody({ data }) {
   const summary = data.summary;
+  const [query, setQuery] = useState("");
+  const incidents = filterByQuery(data.incidents, query, [
+    "incident_id",
+    "title",
+    "rule_id",
+    "affected_devices",
+  ]);
+  const signals = filterByQuery(data.signals, query, [
+    "signal_id",
+    "title",
+    "summary",
+    "device",
+    "device_id",
+    "engine",
+    "source_engine",
+  ]);
   return (
     <>
+      <SearchBox
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter incidents & signals by id or device…"
+        count={incidents.length + signals.length}
+      />
       <div className="grid tiles" style={{ marginBottom: 18 }}>
         <StatTile
           label="Incidents"
@@ -93,7 +117,7 @@ function CorrelationBody({ data }) {
         </div>
       </div>
 
-      {data.incidents.map((inc) => (
+      {incidents.map((inc) => (
         <div
           className={`card strip sev-${String(inc.severity ?? "info").toLowerCase()}`}
           key={inc.incident_id}
@@ -166,7 +190,7 @@ function CorrelationBody({ data }) {
               render: (r) => <span className="mono">{r.signal_id}</span>,
             },
           ]}
-          rows={data.signals}
+          rows={signals}
         />
       </div>
     </>

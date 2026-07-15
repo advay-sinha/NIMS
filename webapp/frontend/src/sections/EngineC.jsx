@@ -15,8 +15,10 @@ import {
   DataTable,
   InfoHover,
   Loader,
+  SearchBox,
 } from "../components/primitives.jsx";
 import { BarChart, TopologyGraph } from "../components/charts.jsx";
+import { filterByQuery, rowMatches } from "../lib/search.js";
 
 export default function EngineC({ section }) {
   const [snapshot, setSnapshot] = useState(null);
@@ -62,14 +64,46 @@ export default function EngineC({ section }) {
 function EngineCBody({ data }) {
   const views = data.views;
   const summary = views.dashboard_summary ?? {};
-  const findings = views.findings_view?.findings ?? [];
+  const allFindings = views.findings_view?.findings ?? [];
   const topology = views.topology_view ?? {};
-  const actions = views.remediation_view?.actions ?? [];
-  const cards = views.device_health_cards?.cards ?? [];
+  const allActions = views.remediation_view?.actions ?? [];
+  const allCards = views.device_health_cards?.cards ?? [];
   const inventory = views.inventory_view ?? {};
+
+  const [query, setQuery] = useState("");
+  const findings = filterByQuery(allFindings, query, [
+    "finding_id",
+    "title",
+    "device",
+    "interface",
+    "category",
+  ]);
+  const actions = filterByQuery(allActions, query, [
+    "action_id",
+    "title",
+    "device",
+    "interface",
+    "action_type",
+  ]);
+  const cards = filterByQuery(allCards, query, ["hostname"]);
+  const interfacesByDevice = Object.entries(
+    inventory.interfaces_by_device ?? {},
+  ).filter(
+    ([device, ifaces]) =>
+      !query.trim() ||
+      device.toLowerCase().includes(query.trim().toLowerCase()) ||
+      (ifaces ?? []).some((i) => rowMatches(i, query, ["name", "description", "vlan"])),
+  );
+  const matchCount = findings.length + cards.length + actions.length;
 
   return (
     <>
+      <SearchBox
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter findings, devices & actions by device or id…"
+        count={matchCount}
+      />
       <div className="grid tiles" style={{ marginBottom: 18 }}>
         <StatTile
           label="Devices"
@@ -171,7 +205,7 @@ function EngineCBody({ data }) {
           Interface inventory
           <InfoHover tip="Per-interface admin/oper status, mode, VLAN, speed/duplex and PoE state parsed from saved show-command output." />
         </h3>
-        {Object.entries(inventory.interfaces_by_device ?? {}).map(([device, ifaces]) => (
+        {interfacesByDevice.map(([device, ifaces]) => (
           <div key={device} style={{ marginBottom: 10 }}>
             <div style={{ fontWeight: 600, margin: "6px 0" }}>{device}</div>
             <DataTable

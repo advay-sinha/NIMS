@@ -2,6 +2,7 @@
  * Live Monitoring — current state of the offline streaming demo.
  */
 
+import { useState } from "react";
 import { useApi } from "../api.js";
 import { int, ts, titleCase, sortedEntries } from "../lib/format.js";
 import {
@@ -11,8 +12,11 @@ import {
   EmptyState,
   DataTable,
   Loader,
+  IncidentModal,
+  SearchBox,
 } from "../components/primitives.jsx";
 import { BarChart } from "../components/charts.jsx";
+import { filterByQuery } from "../lib/search.js";
 
 export default function Live({ section }) {
   const state = useApi("/api/live");
@@ -29,8 +33,30 @@ export default function Live({ section }) {
 }
 
 function LiveBody({ data }) {
+  const [openIncident, setOpenIncident] = useState(null);
+  const [query, setQuery] = useState("");
+  const activeIncidents = filterByQuery(data.activeIncidents, query, [
+    "incident_id",
+    "title",
+    "device_id",
+    "severity",
+  ]);
+  const recentEvents = filterByQuery(data.recentEvents, query, [
+    "title",
+    "device_id",
+    "source_engine",
+    "event_type",
+    "severity",
+    "incident_id",
+  ]);
   return (
     <>
+      <SearchBox
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter incidents & events by id or device…"
+        count={activeIncidents.length + recentEvents.length}
+      />
       <div className="grid tiles" style={{ marginBottom: 18 }}>
         <StatTile
           label="Events replayed"
@@ -75,6 +101,7 @@ function LiveBody({ data }) {
         <h3>Active incidents</h3>
         <DataTable
           empty="No active incidents."
+          onRowClick={(row) => setOpenIncident(row)}
           columns={[
             {
               key: "severity",
@@ -94,7 +121,7 @@ function LiveBody({ data }) {
               render: (r) => <span className="mono">{r.incident_id}</span>,
             },
           ]}
-          rows={data.activeIncidents}
+          rows={activeIncidents}
         />
       </div>
 
@@ -125,10 +152,15 @@ function LiveBody({ data }) {
               render: (r) => ts(r.emitted_at),
             },
           ]}
-          rows={data.recentEvents}
+          rows={recentEvents}
         />
         <div className="chart-note">{data.safetyNote}</div>
       </div>
+
+      <IncidentModal
+        incident={openIncident}
+        onClose={() => setOpenIncident(null)}
+      />
     </>
   );
 }

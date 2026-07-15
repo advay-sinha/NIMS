@@ -3,6 +3,7 @@
  * event log. Runs are immutable, so everything here stays reviewable.
  */
 
+import { useState } from "react";
 import { useApi } from "../api.js";
 import { int, ts, titleCase } from "../lib/format.js";
 import {
@@ -12,7 +13,9 @@ import {
   DataTable,
   InfoHover,
   Loader,
+  SearchBox,
 } from "../components/primitives.jsx";
+import { filterByQuery } from "../lib/search.js";
 
 export default function History({ section }) {
   const state = useApi("/api/history");
@@ -40,8 +43,25 @@ function HistoryBody({ data }) {
     { key: "timestamp", label: "Generated", render: (r) => ts(r.timestamp) },
   ];
 
+  const [query, setQuery] = useState("");
+  const assessmentRuns = filterByQuery(data.assessmentRuns, query, ["id", "label"]);
+  const incidentRuns = filterByQuery(data.incidentRuns, query, ["id", "label"]);
+  const events = filterByQuery(data.eventHistory.events, query, [
+    "title",
+    "device_id",
+    "source_engine",
+    "event_type",
+    "incident_id",
+  ]);
+
   return (
     <>
+      <SearchBox
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter runs & events by id or device…"
+        count={assessmentRuns.length + incidentRuns.length + events.length}
+      />
       <div className="grid tiles" style={{ marginBottom: 18 }}>
         <StatTile
           label="Assessment runs"
@@ -69,14 +89,14 @@ function HistoryBody({ data }) {
             Assessment runs
             <InfoHover tip="Engine C snapshots under outputs/network_config — immutable directories, never overwritten." />
           </h3>
-          <DataTable empty="No assessment runs." columns={runColumns} rows={data.assessmentRuns} />
+          <DataTable empty="No assessment runs." columns={runColumns} rows={assessmentRuns} />
         </div>
         <div className="card">
           <h3>
             Incident runs
             <InfoHover tip="Correlation runs under outputs/correlation — each keeps its incidents, signals and report." />
           </h3>
-          <DataTable empty="No incident runs." columns={runColumns} rows={data.incidentRuns} />
+          <DataTable empty="No incident runs." columns={runColumns} rows={incidentRuns} />
         </div>
       </div>
 
@@ -99,7 +119,7 @@ function HistoryBody({ data }) {
             { key: "title", label: "Event" },
             { key: "emitted_at", label: "Emitted", render: (r) => ts(r.emitted_at) },
           ]}
-          rows={data.eventHistory.events}
+          rows={events}
         />
       </div>
     </>

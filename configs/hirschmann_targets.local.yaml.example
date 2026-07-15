@@ -1,0 +1,19 @@
+# NetSentinel — Hirschmann SNMPv3 target inventory (EXAMPLE)
+#
+# Copy this file to `configs/hirschmann_targets.local.yaml` (which is gitignored)
+# and edit for your lab switches. Credentials are NEVER stored here — only the
+# NAMES of the environment variables that hold them.
+#
+# No arbitrary OIDs: each target selects a predefined, allowlisted OID `profile`.
+
+targets:
+  - name: test-switch-01
+    host: 192.0.2.10          # management IP of the switch
+    port: 161
+    snmp_version: v3
+    username_env: HIRSCHMANN_SNMP_USER
+    auth_protocol: SHA
+    auth_password_env: HIRSCHMANN_SNMP_AUTH_PASSWORD
+    privacy_protocol: AES
+    privacy_password_env: HIRSCHMANN_SNMP_PRIV_PASSWORD
+    profile: hirschmann_hios_basic

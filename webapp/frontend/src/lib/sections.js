@@ -162,7 +162,7 @@ export const SECTIONS = [
     code: "COR",
     label: "Network Incident Monitor",
     color: "var(--correlation)",
-    title: "Unified Incidents Monitoring",
+title: "Unified Incidents Monitoring",
     summary:
       "Combines Engine A cyber signals, Engine B health anomalies and " +
       "Engine C configuration findings into unified incidents — e.g. high " +
@@ -184,6 +184,40 @@ export const SECTIONS = [
       {
         name: "Run picker",
         tip: "Inspect any persisted correlation run; the latest is selected by default.",
+      },
+    ],
+  },
+  {
+    id: "live_ingestion",
+    code: "INGEST",
+    label: "Live Ingestion",
+    color: "var(--engine-b)",
+    title: "Live Logging & Telemetry Ingestion",
+    summary:
+      "Offline-first ingestion of Sophos cyber events and Hirschmann health/" +
+      "configuration telemetry into one normalized event stream, routed to " +
+      "Engine A/B/C. Read-only and disabled-by-default for live sources: no " +
+      "device is contacted and no configuration is ever changed from here.",
+    features: [
+      {
+        name: "Ingestion health",
+        tip: "Overall status of the last ingestion run — healthy/degraded, mode (offline/live), event totals and per-source outcomes.",
+      },
+      {
+        name: "Source status",
+        tip: "Per-source state for Sophos Central, Sophos Firewall, Hirschmann SNMP, traps and configuration snapshots — enabled/disabled, mode, events and any failure category.",
+      },
+      {
+        name: "Recent events",
+        tip: "Normalized events with filters by vendor, source, severity, device, category and engine target. Payloads are sanitized — no secrets ever reach the browser.",
+      },
+      {
+        name: "Checkpoint freshness",
+        tip: "Per-source checkpoint age so you can see how current each source's cursor is.",
+      },
+      {
+        name: "Failures & retries",
+        tip: "Retry counts and failure categories for any source that did not complete cleanly.",
       },
     ],
   },

@@ -13,6 +13,7 @@ import {
   DataTable,
   InfoHover,
   Loader,
+  MarkdownReport,
 } from "../components/primitives.jsx";
 
 export default function Training({ section }) {
@@ -200,9 +201,9 @@ function TrainingBody({ data }) {
       </div>
 
       {data.validation.reportMarkdown && (
-        <div style={{ marginTop: 18 }}>
-          <h2 style={{ fontSize: 15, margin: "0 0 8px" }}>Model validation report</h2>
-          <pre className="report">{data.validation.reportMarkdown}</pre>
+        <div className="card" style={{ marginTop: 18 }}>
+          <h3>Model validation report</h3>
+          <MarkdownReport>{data.validation.reportMarkdown}</MarkdownReport>
         </div>
       )}
     </>
