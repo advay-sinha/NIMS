@@ -16,7 +16,7 @@ from typing import Any
 from src.live_logging import hirschmann_snmp as snmp_parser
 from src.live_logging.adapters.base import CollectResult, LiveAdapter
 from src.live_logging.adapters.errors import ConfigurationError, ConnectionTestError
-from src.live_logging.models import ENGINE_NETWORK_HEALTH
+from src.live_logging.models import ENGINE_NETWORK_HEALTH, utc_now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +63,13 @@ class HirschmannSnmpAdapter(LiveAdapter):
         return snmp_parser.parse_snmp_metrics(readings, self._thresholds()), []
 
     def _collect_live(self) -> CollectResult:  # pragma: no cover - needs a device
-        readings = [self._poll_target(t) for t in self._load_targets()]
-        return snmp_parser.parse_snmp_metrics([r for r in readings if r], self._thresholds()), []
+        readings = [r for r in (self._poll_target(t) for t in self._load_targets()) if r]
+        records = snmp_parser.parse_snmp_metrics(readings, self._thresholds())
+        for reading in readings:
+            heartbeat = snmp_parser.heartbeat_event(reading)
+            if heartbeat is not None:
+                records.append(heartbeat)
+        return records, []
 
     # ---- live helpers (read-only GET only) ----------------------------------
 
@@ -79,15 +84,22 @@ class HirschmannSnmpAdapter(LiveAdapter):
         return list(data.get("targets", []))
 
     def _poll_target(self, target: dict[str, Any]) -> dict[str, Any] | None:  # pragma: no cover
-        from pysnmp.hlapi import (  # lazy import — read-only getCmd only
-            CommunityData,  # noqa: F401  (imported for API completeness)
+        """Poll one target with read-only SNMPv3 GETs (async pysnmp v6/7 API)."""
+        import asyncio
+
+        return asyncio.run(self._poll_target_async(target))
+
+    async def _poll_target_async(self, target: dict[str, Any]) -> dict[str, Any] | None:  # pragma: no cover
+        # pysnmp 6/7 moved the v3 USM API here; ``get_cmd`` is a coroutine and
+        # the transport is created asynchronously. Read-only GET only (no writes).
+        from pysnmp.hlapi.v3arch import (  # lazy import — read-only get_cmd only
             ContextData,
             ObjectIdentity,
             ObjectType,
             SnmpEngine,
             UdpTransportTarget,
             UsmUserData,
-            getCmd,
+            get_cmd,
             usmHMACSHAAuthProtocol,
             usmAesCfb128Protocol,
         )
@@ -101,15 +113,22 @@ class HirschmannSnmpAdapter(LiveAdapter):
         if not (user and auth and priv):
             raise ConnectionTestError(f"SNMP credentials missing for {target.get('name')}")
 
-        reading: dict[str, Any] = {"device_id": target.get("name"), "device_ip": target.get("host")}
+        reading: dict[str, Any] = {
+            "device_id": target.get("name"),
+            "device_ip": target.get("host"),
+            "timestamp": utc_now_iso(),
+        }
         engine = SnmpEngine()
         usm = UsmUserData(user, auth, priv,
                           authProtocol=usmHMACSHAAuthProtocol, privProtocol=usmAesCfb128Protocol)
-        udp = UdpTransportTarget((target["host"], int(target.get("port", 161))),
-                                 timeout=float(self.cfg.get("request_timeout_seconds", 5)))
+        udp = await UdpTransportTarget.create(
+            (target["host"], int(target.get("port", 161))),
+            timeout=float(self.cfg.get("request_timeout_seconds", 5)),
+            retries=int(self.cfg.get("request_retries", 1)),
+        )
         for field, oid in profile.items():
-            errInd, errStat, _, binds = next(
-                getCmd(engine, usm, udp, ContextData(), ObjectType(ObjectIdentity(oid)))
+            errInd, errStat, _, binds = await get_cmd(
+                engine, usm, udp, ContextData(), ObjectType(ObjectIdentity(oid))
             )
             if errInd or errStat:
                 reading["reachable"] = False
@@ -117,6 +136,8 @@ class HirschmannSnmpAdapter(LiveAdapter):
             for _oid, val in binds:
                 reading[field] = val.prettyPrint()
         reading.setdefault("reachable", True)
+        if reading.get("sysName"):
+            reading.setdefault("hostname", reading["sysName"])
         return reading
 
     def _test_connection_live(self) -> None:  # pragma: no cover

@@ -9,7 +9,7 @@
 hirschmann:
   snmp_polling:
     enabled: true
-    mode: offline                       # `live` needs pysnmp + approval + credentials
+    mode: live                          # LIVE: read-only SNMPv3 GET polling (approved for Huawei test)
     read_only: true
     version: v3
     poll_interval_seconds: 60

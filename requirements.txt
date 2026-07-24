@@ -53,3 +53,8 @@ tensorboard
 
 # Dashboard
 streamlit
+
+# Live Ingestion (Phase 9 — read-only SNMPv3 polling / traps)
+pysnmp>=7,<8
+cryptography>=42,<50   # AES privacy backend for pysnmp SNMPv3 (CFB path); <50 avoids the removed-CFB break
+paramiko>=3.4,<4       # read-only SSH retrieval of switch `display` output; <4 keeps SHA1 KEX for older VRP/IOS gear (paramiko 5 dropped it)

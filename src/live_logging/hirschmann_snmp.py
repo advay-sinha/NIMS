@@ -54,6 +54,26 @@ def _emit(base: dict[str, Any], **over: Any) -> dict[str, Any]:
     return record
 
 
+def heartbeat_event(reading: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Positive availability record for a reading that was polled successfully.
+
+    Emitted by the live poller (not the offline parser) so a healthy device that
+    trips no threshold still produces one visible ``poll_ok`` health event
+    confirming the read reached the store. Returns ``None`` for unreachable
+    readings (those already raise a ``device_unreachable`` event).
+    """
+    if str(reading.get("reachable", "true")).lower() in {"false", "0", "no"}:
+        return None
+    base = _base_record(reading)
+    corr = {k: v for k, v in {"device_id": reading.get("device_id")}.items() if v}
+    fields = {k: reading.get(k) for k in ("sysName", "sysUpTime") if reading.get(k) is not None}
+    return _emit(base, category="availability", subcategory="poll_ok", severity="info",
+                 correlation_keys=corr,
+                 message=f"SNMP poll OK for {reading.get('hostname') or reading.get('device_id')}",
+                 normalized_fields=fields,
+                 raw_ref=f"{reading.get('device_id')}:poll_ok:{reading.get('timestamp')}")
+
+
 def metric_events(
     reading: Mapping[str, Any],
     thresholds: Mapping[str, float] | None = None,

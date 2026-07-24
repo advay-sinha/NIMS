@@ -130,8 +130,9 @@ def test_snmp_rejects_arbitrary_oids(tmp_path):
 
 def test_snmp_has_no_set_path():
     src = Path("src/live_logging/adapters/hirschmann_snmp.py").read_text(encoding="utf-8")
-    assert "setCmd" not in src and "snmpset" not in src
-    assert "getCmd" in src  # read-only GET is used
+    # No SNMP write primitive in any casing (pysnmp v4 setCmd / v6+ set_cmd / CLI snmpset).
+    assert "setCmd" not in src and "set_cmd" not in src and "snmpset" not in src
+    assert "get_cmd" in src  # read-only GET is used (pysnmp v6/7 API)
 
 
 # ------------------------------------------------------------ Hirschmann traps

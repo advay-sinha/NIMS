@@ -42,6 +42,10 @@ def build_parser() -> argparse.ArgumentParser:
              "network_config.snapshot_id).",
     )
     parser.add_argument(
+        "--vendor", default="cisco", choices=["cisco", "huawei"],
+        help="Command-output dialect of the saved snapshot (default: cisco).",
+    )
+    parser.add_argument(
         "--skip-topology", action="store_true",
         help="Skip Phase 2 topology construction (inventory only).",
     )
@@ -74,8 +78,14 @@ def main(argv: list[str] | None = None) -> int:
     input_dir = Path(args.input_dir or cfg.get("input_dir", ""))
     snapshot_id = args.snapshot_id or str(cfg.get("snapshot_id", "snapshot"))
 
+    if args.vendor == "huawei":
+        from src.network_config.vendors import huawei
+
+        builder = huawei.build_inventory
+    else:
+        builder = build_inventory
     try:
-        inventory = build_inventory(input_dir, cfg, snapshot_id)
+        inventory = builder(input_dir, cfg, snapshot_id)
     except FileNotFoundError as exc:
         logger.error("%s", exc)
         return 1

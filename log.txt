@@ -1,0 +1,33 @@
+1. Set SSH creds (session-only, not saved to history)
+
+$env:HUAWEI_SSH_USER = "admin"
+$env:HUAWEI_SSH_PASSWORD = Read-Host "Huawei SSH password"
+
+2. One-time: record + verify the host key
+
+python -m scripts.retrieve_huawei_config --host 10.90.10.72 --save-host-key
+It prints the host-key fingerprint and saves it to configs/known_hosts.local (gitignored). This enforces host-key verification on every later run (no blind trust). It's your switch, so the fingerprint is expected.
+
+3. Live read-only retrieval
+
+python -m scripts.retrieve_huawei_config --host 10.90.10.72
+Expect: Wrote 9/9 read-only command outputs to outputs/network_config/live_capture/huawei_s5720 (no config changed). The running-config is auto-redacted on save.
+
+4. Assess the live capture + export
+
+python -m scripts.analyze_network_config --vendor huawei --input-dir outputs/network_config/live_capture/huawei_s5720 --snapshot-id huawei_s5720_live
+python -m scripts.export_network_config_dashboard --snapshot-id huawei_s5720_live
+
+5. View
+
+Restart the backend, open Engine C → snapshot huawei_s5720_live — now sourced from a live pull.
+
+Verify read-only: the switch only received display … + screen-length 0 temporary (session-only). display snmp-agent statistics will still show 0 SetRequest; config is untouched.
+
+Likely issues:
+- no matching host key type / kex / cipher during connect → Huawei V200R011 wants legacy SSH algorithms paramiko may not offer by default. Paste the exact error and I'll add the algorithm negotiation.
+- host key not found … run --save-host-key first → do step 2.
+- Auth failure → wrong env creds; re-set them in this shell.
+- Empty/partial capture → a display command name differs on your VRP; tell me which file is empty.
+
+Run steps 1–3 and paste the output (fingerprint line + the "Wrote N/9" line, or any error). I'll wait before we assess.

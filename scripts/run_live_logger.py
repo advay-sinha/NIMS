@@ -44,7 +44,9 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--live", action="store_true", help="Attempt live mode (gated; disabled by default).")
     parser.add_argument("--run-once", action="store_true", help="Run one pass (default action).")
     parser.add_argument("--scheduled", action="store_true",
-                        help="Persistent scheduling is not enabled this phase; runs once with a notice.")
+                        help="Poll continuously every --interval seconds until interrupted (Ctrl-C).")
+    parser.add_argument("--interval", type=int, default=None,
+                        help="Seconds between scheduled cycles (default: SNMP poll_interval_seconds or 60).")
     parser.add_argument("--status-only", action="store_true", help="Print adapter status; do not ingest.")
     parser.add_argument("--dry-run", action="store_true", help="Validate + collect but do not persist.")
     return parser
@@ -79,18 +81,59 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.scheduled:
-        logger.warning("Scheduled mode is not enabled in this phase; performing a single run-once.")
+        interval = args.interval or _default_interval(hirschmann)
+        return _run_scheduled(sources, live, sophos, hirschmann, _mode(args), interval, args.dry_run)
 
     status, output_dir = runtime.run(
         sources, live, sophos, hirschmann,
         mode=_mode(args), dry_run=args.dry_run,
     )
+    _log_cycle(status, output_dir)
+    return 0
+
+
+def _default_interval(hirschmann_cfg: dict) -> int:
+    """Poll interval (s) from the SNMP config, falling back to 60."""
+    snmp = (hirschmann_cfg.get("hirschmann") or hirschmann_cfg).get("snmp_polling", {})
+    try:
+        return max(5, int(snmp.get("poll_interval_seconds", 60)))
+    except (TypeError, ValueError):
+        return 60
+
+
+def _log_cycle(status, output_dir) -> None:
     logger.info("Ingestion complete: %d events, healthy=%s, output=%s",
                 status.total_events, status.healthy, output_dir)
     for s in status.sources:
         logger.info("  %-18s %-9s events=%d%s", s.source, s.status, s.events,
                     f" ({s.error_message})" if s.error_message else "")
-    return 0
+
+
+def _run_scheduled(sources, live, sophos, hirschmann, mode, interval, dry_run) -> int:
+    """Poll continuously every ``interval`` seconds until interrupted.
+
+    Still fully read-only: each cycle is one ``runtime.run`` pass (the same gated
+    live/offline path as run-once). A source failure in one cycle never stops the
+    loop. Ctrl-C exits cleanly.
+    """
+    import time
+
+    logger.info("Scheduled ingestion every %ds (mode=%s). Press Ctrl-C to stop.", interval, mode or "config")
+    cycle = 0
+    try:
+        while True:
+            cycle += 1
+            try:
+                status, output_dir = runtime.run(
+                    sources, live, sophos, hirschmann, mode=mode, dry_run=dry_run,
+                )
+                logger.info("cycle %d: %d events, healthy=%s", cycle, status.total_events, status.healthy)
+            except Exception as exc:  # noqa: BLE001 — never let one cycle kill the loop
+                logger.warning("cycle %d failed: %s", cycle, exc)
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        logger.info("Scheduled ingestion stopped by user after %d cycle(s).", cycle)
+        return 0
 
 
 if __name__ == "__main__":
